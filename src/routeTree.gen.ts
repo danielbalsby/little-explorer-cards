@@ -9,27 +9,229 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedIndstillingerRouteImport } from './routes/_authenticated/indstillinger'
+import { Route as AuthenticatedGenererRouteImport } from './routes/_authenticated/generer'
+import { Route as AuthenticatedDesignmanualRouteImport } from './routes/_authenticated/designmanual'
+import { Route as AuthenticatedBibliotekRouteImport } from './routes/_authenticated/bibliotek'
+import { Route as AuthenticatedBalanceRouteImport } from './routes/_authenticated/balance'
+import { Route as AuthenticatedKortIdRouteImport } from './routes/_authenticated/kort.$id'
 
-export interface FileRoutesByFullPath {}
-export interface FileRoutesByTo {}
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedIndstillingerRoute =
+  AuthenticatedIndstillingerRouteImport.update({
+    id: '/indstillinger',
+    path: '/indstillinger',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedGenererRoute = AuthenticatedGenererRouteImport.update({
+  id: '/generer',
+  path: '/generer',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDesignmanualRoute =
+  AuthenticatedDesignmanualRouteImport.update({
+    id: '/designmanual',
+    path: '/designmanual',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedBibliotekRoute = AuthenticatedBibliotekRouteImport.update({
+  id: '/bibliotek',
+  path: '/bibliotek',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedBalanceRoute = AuthenticatedBalanceRouteImport.update({
+  id: '/balance',
+  path: '/balance',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedKortIdRoute = AuthenticatedKortIdRouteImport.update({
+  id: '/kort/$id',
+  path: '/kort/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+
+export interface FileRoutesByFullPath {
+  '/': typeof AuthenticatedIndexRoute
+  '/auth': typeof AuthRoute
+  '/balance': typeof AuthenticatedBalanceRoute
+  '/bibliotek': typeof AuthenticatedBibliotekRoute
+  '/designmanual': typeof AuthenticatedDesignmanualRoute
+  '/generer': typeof AuthenticatedGenererRoute
+  '/indstillinger': typeof AuthenticatedIndstillingerRoute
+  '/kort/$id': typeof AuthenticatedKortIdRoute
+}
+export interface FileRoutesByTo {
+  '/auth': typeof AuthRoute
+  '/balance': typeof AuthenticatedBalanceRoute
+  '/bibliotek': typeof AuthenticatedBibliotekRoute
+  '/designmanual': typeof AuthenticatedDesignmanualRoute
+  '/generer': typeof AuthenticatedGenererRoute
+  '/indstillinger': typeof AuthenticatedIndstillingerRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/kort/$id': typeof AuthenticatedKortIdRoute
+}
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/balance': typeof AuthenticatedBalanceRoute
+  '/_authenticated/bibliotek': typeof AuthenticatedBibliotekRoute
+  '/_authenticated/designmanual': typeof AuthenticatedDesignmanualRoute
+  '/_authenticated/generer': typeof AuthenticatedGenererRoute
+  '/_authenticated/indstillinger': typeof AuthenticatedIndstillingerRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/kort/$id': typeof AuthenticatedKortIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: never
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/balance'
+    | '/bibliotek'
+    | '/designmanual'
+    | '/generer'
+    | '/indstillinger'
+    | '/kort/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: never
-  id: '__root__'
+  to:
+    | '/auth'
+    | '/balance'
+    | '/bibliotek'
+    | '/designmanual'
+    | '/generer'
+    | '/indstillinger'
+    | '/'
+    | '/kort/$id'
+  id:
+    | '__root__'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/balance'
+    | '/_authenticated/bibliotek'
+    | '/_authenticated/designmanual'
+    | '/_authenticated/generer'
+    | '/_authenticated/indstillinger'
+    | '/_authenticated/'
+    | '/_authenticated/kort/$id'
   fileRoutesById: FileRoutesById
 }
-export interface RootRouteChildren {}
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {}
+export interface RootRouteChildren {
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
-const rootRouteChildren: RootRouteChildren = {}
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/indstillinger': {
+      id: '/_authenticated/indstillinger'
+      path: '/indstillinger'
+      fullPath: '/indstillinger'
+      preLoaderRoute: typeof AuthenticatedIndstillingerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/generer': {
+      id: '/_authenticated/generer'
+      path: '/generer'
+      fullPath: '/generer'
+      preLoaderRoute: typeof AuthenticatedGenererRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/designmanual': {
+      id: '/_authenticated/designmanual'
+      path: '/designmanual'
+      fullPath: '/designmanual'
+      preLoaderRoute: typeof AuthenticatedDesignmanualRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/bibliotek': {
+      id: '/_authenticated/bibliotek'
+      path: '/bibliotek'
+      fullPath: '/bibliotek'
+      preLoaderRoute: typeof AuthenticatedBibliotekRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/balance': {
+      id: '/_authenticated/balance'
+      path: '/balance'
+      fullPath: '/balance'
+      preLoaderRoute: typeof AuthenticatedBalanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/kort/$id': {
+      id: '/_authenticated/kort/$id'
+      path: '/kort/$id'
+      fullPath: '/kort/$id'
+      preLoaderRoute: typeof AuthenticatedKortIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+  }
+}
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedBalanceRoute: typeof AuthenticatedBalanceRoute
+  AuthenticatedBibliotekRoute: typeof AuthenticatedBibliotekRoute
+  AuthenticatedDesignmanualRoute: typeof AuthenticatedDesignmanualRoute
+  AuthenticatedGenererRoute: typeof AuthenticatedGenererRoute
+  AuthenticatedIndstillingerRoute: typeof AuthenticatedIndstillingerRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedKortIdRoute: typeof AuthenticatedKortIdRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedBalanceRoute: AuthenticatedBalanceRoute,
+  AuthenticatedBibliotekRoute: AuthenticatedBibliotekRoute,
+  AuthenticatedDesignmanualRoute: AuthenticatedDesignmanualRoute,
+  AuthenticatedGenererRoute: AuthenticatedGenererRoute,
+  AuthenticatedIndstillingerRoute: AuthenticatedIndstillingerRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedKortIdRoute: AuthenticatedKortIdRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+}
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
