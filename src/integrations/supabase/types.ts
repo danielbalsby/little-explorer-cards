@@ -14,7 +14,209 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      card_versions: {
+        Row: {
+          card_id: string
+          change_note: string | null
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          version_number: number
+        }
+        Insert: {
+          card_id: string
+          change_note?: string | null
+          content: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          version_number: number
+        }
+        Update: {
+          card_id?: string
+          change_note?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_versions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cards: {
+        Row: {
+          activity_steps: Json
+          activity_type: string
+          age_group: Database["public"]["Enums"]["age_group"]
+          card_number: number
+          created_at: string
+          created_by: string | null
+          did_you_know: string
+          duration: string
+          id: string
+          is_demo: boolean
+          is_locked: boolean
+          materials: Json
+          observations: string
+          pause_signs: string
+          primary_development_area: string
+          purpose: string
+          safety: string
+          secondary_development_areas: Json
+          similarity_score: number | null
+          status: Database["public"]["Enums"]["card_status"]
+          title: string
+          updated_at: string
+          variations: Json
+          version: number
+        }
+        Insert: {
+          activity_steps?: Json
+          activity_type?: string
+          age_group: Database["public"]["Enums"]["age_group"]
+          card_number?: number
+          created_at?: string
+          created_by?: string | null
+          did_you_know?: string
+          duration?: string
+          id?: string
+          is_demo?: boolean
+          is_locked?: boolean
+          materials?: Json
+          observations?: string
+          pause_signs?: string
+          primary_development_area?: string
+          purpose?: string
+          safety?: string
+          secondary_development_areas?: Json
+          similarity_score?: number | null
+          status?: Database["public"]["Enums"]["card_status"]
+          title: string
+          updated_at?: string
+          variations?: Json
+          version?: number
+        }
+        Update: {
+          activity_steps?: Json
+          activity_type?: string
+          age_group?: Database["public"]["Enums"]["age_group"]
+          card_number?: number
+          created_at?: string
+          created_by?: string | null
+          did_you_know?: string
+          duration?: string
+          id?: string
+          is_demo?: boolean
+          is_locked?: boolean
+          materials?: Json
+          observations?: string
+          pause_signs?: string
+          primary_development_area?: string
+          purpose?: string
+          safety?: string
+          secondary_development_areas?: Json
+          similarity_score?: number | null
+          status?: Database["public"]["Enums"]["card_status"]
+          title?: string
+          updated_at?: string
+          variations?: Json
+          version?: number
+        }
+        Relationships: []
+      }
+      design_guidelines: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          content?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      development_areas: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      project_settings: {
+        Row: {
+          created_at: string
+          default_language: string
+          id: string
+          project_name: string
+          target_card_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_language?: string
+          id?: string
+          project_name?: string
+          target_card_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_language?: string
+          id?: string
+          project_name?: string
+          target_card_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +225,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      age_group: "0-2m" | "2-4m" | "4-6m" | "6-9m" | "9-12m"
+      card_status: "draft" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +353,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      age_group: ["0-2m", "2-4m", "4-6m", "6-9m", "9-12m"],
+      card_status: ["draft", "approved", "rejected"],
+    },
   },
 } as const
