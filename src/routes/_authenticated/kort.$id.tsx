@@ -185,6 +185,17 @@ function CardEditor() {
         <section className="space-y-6">
           <CardPreview card={form} />
 
+          <div className="rounded-2xl border bg-muted/30 p-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">Bagside</div>
+              <div className="font-serif text-lg">Global master</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Bagsiden er fælles for hele serien og redigeres i Design-lab / Indstillinger.
+              </p>
+            </div>
+            <Link to="/design-lab"><Button variant="outline" size="sm">Åbn Design-lab</Button></Link>
+          </div>
+
           <div className="rounded-2xl border bg-card p-5">
             <h3 className="font-serif text-lg mb-3">Versionshistorik</h3>
             <ul className="text-sm divide-y">
