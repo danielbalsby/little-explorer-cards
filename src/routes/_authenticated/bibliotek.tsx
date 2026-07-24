@@ -109,9 +109,14 @@ function LibraryPage() {
                 </div>
                 <h3 className="font-serif text-xl mt-2">{c.title}</h3>
                 <p className="text-xs text-muted-foreground mt-1">{c.primary_development_area}</p>
-                <div className="mt-4 flex items-center justify-between">
+                <div className="mt-4 flex items-center justify-between gap-1 flex-wrap">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-muted">{STATUS_LABEL[c.status as CardStatus]}</span>
-                  {c.is_demo && <span className="text-[10px] uppercase tracking-widest text-muted-foreground">demo</span>}
+                  <div className="flex items-center gap-1">
+                    {c.needs_shortening && (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">Forkort</span>
+                    )}
+                    {c.is_demo && <span className="text-[10px] uppercase tracking-widest text-muted-foreground">demo</span>}
+                  </div>
                 </div>
               </div>
             </Link>
