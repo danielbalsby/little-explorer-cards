@@ -282,11 +282,12 @@ export const saveCard = createServerFn({ method: "POST" })
     if (!payload.title || !payload.age_group) {
       throw new Error("Manglende titel eller aldersgruppe");
     }
-    const { data: created, error } = await supabase.from("cards").insert({
-      ...(payload as never),
+    const insertRow = {
+      ...payload,
       status: data.status ?? "draft",
       created_by: userId,
-    }).select().single();
+    } as never;
+    const { data: created, error } = await supabase.from("cards").insert(insertRow).select().single();
     if (error) throw new Error(error.message);
     return created;
   });
