@@ -87,8 +87,10 @@ function LibraryPage() {
           <SelectContent>
             <SelectItem value="all">Alle status</SelectItem>
             <SelectItem value="draft">Udkast</SelectItem>
+            <SelectItem value="candidate">Kandidat</SelectItem>
             <SelectItem value="approved">Godkendt</SelectItem>
             <SelectItem value="rejected">Afvist</SelectItem>
+            <SelectItem value="archived">Arkiveret</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex rounded-md border overflow-hidden">
