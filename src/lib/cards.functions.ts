@@ -228,6 +228,12 @@ const SaveCardInput = z.object({
     editor_notes: z.string().optional(),
     print_fit_percentage: z.number().optional(),
     illustration_quality: z.record(z.string(), z.unknown()).optional(),
+    // V5-metadata
+    reason_to_exist: z.string().optional(),
+    activity_in_one_sentence: z.string().optional(),
+    five_second_test: z.string().optional(),
+    intro_pattern: z.string().optional(),
+    blocking_issues: z.array(z.string()).optional(),
 });
 
 export const saveCard = createServerFn({ method: "POST" })
