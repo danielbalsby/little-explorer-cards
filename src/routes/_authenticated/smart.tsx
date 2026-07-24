@@ -277,7 +277,7 @@ function SmartPage() {
               <div className="flex justify-center">
                 {side === "front"
                   ? <CardFront print={preview.print} />
-                  : <CardBack title={preview.print.title} age_group={preview.print.age_group} illustration_status="not_generated" seed={preview.print.title.length} />}
+                  : <CardBack />}
               </div>
 
               {/* Metadata */}

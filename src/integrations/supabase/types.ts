@@ -132,6 +132,7 @@ export type Database = {
           is_demo: boolean
           is_gold_standard: boolean
           is_locked: boolean
+          legacy_card_back_illustration: string | null
           materials: Json
           needs_shortening: boolean
           observations: string
@@ -194,6 +195,7 @@ export type Database = {
           is_demo?: boolean
           is_gold_standard?: boolean
           is_locked?: boolean
+          legacy_card_back_illustration?: string | null
           materials?: Json
           needs_shortening?: boolean
           observations?: string
@@ -256,6 +258,7 @@ export type Database = {
           is_demo?: boolean
           is_gold_standard?: boolean
           is_locked?: boolean
+          legacy_card_back_illustration?: string | null
           materials?: Json
           needs_shortening?: boolean
           observations?: string
@@ -380,26 +383,56 @@ export type Database = {
       }
       project_settings: {
         Row: {
+          brand_logo_url: string | null
+          brand_mark_url: string | null
+          brand_name: string
+          brand_tagline: string
           created_at: string
           default_language: string
+          duplex_flip: string
           id: string
+          master_card_back: string
+          primary_brand_color: string
+          print_texture: string
           project_name: string
+          secondary_brand_color: string
+          show_tagline: boolean
           target_card_count: number
           updated_at: string
         }
         Insert: {
+          brand_logo_url?: string | null
+          brand_mark_url?: string | null
+          brand_name?: string
+          brand_tagline?: string
           created_at?: string
           default_language?: string
+          duplex_flip?: string
           id?: string
+          master_card_back?: string
+          primary_brand_color?: string
+          print_texture?: string
           project_name?: string
+          secondary_brand_color?: string
+          show_tagline?: boolean
           target_card_count?: number
           updated_at?: string
         }
         Update: {
+          brand_logo_url?: string | null
+          brand_mark_url?: string | null
+          brand_name?: string
+          brand_tagline?: string
           created_at?: string
           default_language?: string
+          duplex_flip?: string
           id?: string
+          master_card_back?: string
+          primary_brand_color?: string
+          print_texture?: string
           project_name?: string
+          secondary_brand_color?: string
+          show_tagline?: boolean
           target_card_count?: number
           updated_at?: string
         }
