@@ -75,6 +75,23 @@ function Dashboard() {
         <Stat label={STATUS_LABEL.rejected} value={rejected} tone="clay" />
       </div>
 
+      {series && (
+        <section className="rounded-2xl border bg-card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Gauge className="h-4 w-4" />
+            <h2 className="font-serif text-xl">Seriestyrke</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            <SeriesStat label="Gennemsnitlig kvalitet" value={series.avgQuality !== null ? `${series.avgQuality}/5` : "—"} />
+            <SeriesStat label="Fortjener plads" value={series.byDeserves.ja ?? 0} tone="sage" />
+            <SeriesStat label="Kan reddes" value={series.byDeserves["måske"] ?? 0} tone="sand" />
+            <SeriesStat label="Bør droppes" value={series.byDeserves.nej ?? 0} tone="clay" />
+            <SeriesStat label="Kandidater" value={series.byStatus.candidate ?? 0} />
+          </div>
+        </section>
+      )}
+
+
       <div className="grid md:grid-cols-2 gap-6">
         <section className="rounded-2xl border bg-card p-6">
           <h2 className="font-serif text-xl mb-4">Fordeling pr. aldersgruppe</h2>
