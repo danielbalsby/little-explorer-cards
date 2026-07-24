@@ -613,6 +613,9 @@ export const rejectCard = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("cards")
       .update({ status: "rejected", rejection_reason: data.reason })
       .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
 
 // ================================================================
 // V4: Redaktionelt review-flow
