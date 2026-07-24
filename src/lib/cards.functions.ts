@@ -211,6 +211,17 @@ const SaveCardInput = z.object({
   status: z.enum(["draft", "approved", "rejected"]).optional(),
   change_note: z.string().optional(),
   needs_shortening: z.boolean().optional(),
+  // V3-metadata
+  parent_category: z.string().optional(),
+  activity_mechanics: z.array(z.string()).optional(),
+  caregiver_energy: z.string().optional(),
+  setup_level: z.string().optional(),
+  good_when: z.array(z.string()).optional(),
+  generation_rationale: z.string().optional(),
+  fact_statement: z.string().optional(),
+  evidence_level: z.string().optional(),
+  quality_score: z.record(z.string(), z.unknown()).optional(),
+  rejection_reason: z.string().optional(),
 });
 
 export const saveCard = createServerFn({ method: "POST" })
