@@ -14,7 +14,7 @@ export function cardShell(scale: number): React.CSSProperties {
   };
 }
 
-export function cardTrim(scale: number, bg = P.ivory): React.CSSProperties {
+export function cardTrim(scale: number, bg: string = P.ivory): React.CSSProperties {
   const { trim, cornerRadius } = CARD_FORMAT;
   return {
     width: `${trim.width * scale}mm`,
