@@ -286,6 +286,11 @@ export const saveCard = createServerFn({ method: "POST" })
     if (data.editor_notes !== undefined) payload.editor_notes = data.editor_notes;
     if (data.print_fit_percentage !== undefined) payload.print_fit_percentage = data.print_fit_percentage;
     if (data.illustration_quality !== undefined) payload.illustration_quality = data.illustration_quality;
+    if (data.reason_to_exist !== undefined) payload.reason_to_exist = data.reason_to_exist;
+    if (data.activity_in_one_sentence !== undefined) payload.activity_in_one_sentence = data.activity_in_one_sentence;
+    if (data.five_second_test !== undefined) payload.five_second_test = data.five_second_test;
+    if (data.intro_pattern !== undefined) payload.intro_pattern = data.intro_pattern;
+    if (data.blocking_issues !== undefined) payload.blocking_issues = data.blocking_issues;
 
     // Konvertér materialer hvis print (én linje) → array til legacy-felt
     if (data.print && !data.extended && !data.content) {
