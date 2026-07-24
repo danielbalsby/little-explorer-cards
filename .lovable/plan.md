@@ -1,47 +1,163 @@
-# Babyaktivitetskort MVP — Byggeplan
 
-En intern admin-webapp til at generere, redigere, godkende og analysere 100–120 babyaktivitetskort med AI. Skandinavisk, roligt premium-design. Arkitekturen forberedes til senere SaaS-udvidelse (brugere, betaling, favoritter).
+# Printbare premium-aktivitetskort
 
-## Teknisk stak
+Videreudvikling af den nuværende app. Eksisterende kort og funktionalitet bevares. Alle ændringer sker gennem migrations og additive felter — ingen data slettes.
 
-- TanStack Start + React + TypeScript (nuværende template)
-- Tailwind v4 + shadcn/ui, semantiske design tokens i `src/styles.css`
-- Lovable Cloud (Supabase) til DB + auth (aktiveres først)
-- Lovable AI Gateway (`openai/gpt-5.5`) til kortgenerering via `createServerFn`
-- Ingen API-nøgler i frontend
+## 1. Kortformat som central designindstilling
 
-## Faser (jeg bygger fase 1–3 nu, resten i opfølgende ture)
+Nyt modul `src/lib/card-format.ts` med ét fast format alle preview/print bruger:
 
-### Fase 1 — Fundament
-1. Aktivér Lovable Cloud
-2. Design system i `src/styles.css`: varm knækket hvid baggrund, sand, støvet grøn, afdæmpet blå, terracotta, blød gul som aldersmarkør-tokens; blød typografi (serif overskrift + sans body); afrundede hjørner; diskrete skygger
-3. Sidebar-layout (shadcn sidebar) + mobilvenlig menu, routes:
-   `/` (Dashboard), `/generer`, `/bibliotek`, `/balance`, `/designmanual`, `/indstillinger`
-4. Simpel admin-login (email/password via Cloud auth); alle app-ruter under `_authenticated/`
+```text
+trim:      105 × 148 mm (A6)
+bleed:     3 mm
+safe area: 5 mm inde fra trim
+radius:    ~4 mm (kun digital preview)
+dpi mål:   300
+```
 
-### Fase 2 — Database
-Migration med tabeller: `cards`, `card_versions`, `development_areas`, `design_guidelines`, `project_settings`. JSON-felter til lister (materials, activity_steps, variations). RLS: kun autentificerede admins. Seed 5–10 tydeligt markerede demo-kort (`is_demo=true`) + de 24 udviklingsområder.
+Ingen komponenter hardcoder mm/px — de læser fra dette modul. Ændres formatet globalt her, følger alle previews og printark med.
 
-### Fase 3 — Kerne-flows
-- **Generér kort**: formular (aldersgruppe, primær + sekundære områder, aktivitetstype, varighed, materialer, ekstra instruktion) → server function kalder Lovable AI med struktureret output-schema matchende kortstrukturen → viser i editor
-- **Korteditor**: to-kolonne layout, redigerbare felter venstre, live premium-preview højre med aldersfarvekode + områdeikoner. Handlinger: Gem udkast, Godkend, Afvis, Ny version, Duplikér, Slet, Lås
-- **Originalitetskontrol**: ved gem sammenlignes titel/formål/materialer/trin mod eksisterende kort via Jaccard/token-overlap; advarsel med links til lignende kort (klar til embeddings senere)
-- **Versionering**: hver ændring efter første gem skriver til `card_versions` med change_note
+## 2. Datamodel — additive ændringer
 
-### Fase 4 — Overblik & eksport (opfølgende tur)
-- **Dashboard**: nøgletal, statuslinje mod 120, advarsler, simple diagrammer (recharts)
-- **Kortbibliotek**: grid/liste-toggle, filtre, sortering, søgning
-- **Projektbalance**: fordelinger + tekstuelle anbefalinger baseret på simple regler
-- **Designmanual**: CRUD på `design_guidelines`, bruges senere som AI-kontekst
-- **Eksport**: CSV + JSON (alle/filtrerede/enkelt); PDF/Canva/InDesign vises som "Kommer senere"
+Migration tilføjer kolonner til `cards` (ingen drop, ingen overskrivning):
 
-## Denne tur leverer
+- `print_content jsonb` — den korte version til kortet (samme felter som `extended_content`, men tekstbudget-valideret)
+- `extended_content jsonb` — fuld faglig version (mapper fra eksisterende felter ved første load)
+- `illustration_prompt text`
+- `illustration_status text` — `not_generated` | `draft` | `approved` (default `not_generated`)
+- `illustration_url text` (nullable, forberedt til senere AI-billedgenerering)
+- `needs_shortening boolean` — sættes true på eksisterende kort hvor forsiden overskrider 190 ord
 
-Fase 1–3 komplet og funktionelt, inkl. AI-generering og editor. Fase 4 (dashboard-tal, balance-analyse, eksport) bygges i næste tur oven på samme datamodel så vi undgår at fylde denne tur med skærme før datalaget er stabilt.
+Eksisterende kort forbliver læsbare: hvis `print_content` er null, bruger UI en on-the-fly mapping fra de gamle felter og markerer kortet med "Skal forkortes til print".
 
-## Åbne valg
+## 3. Ny kortstruktur (forside)
 
-1. **Login-metode i MVP**: email/password alene, eller også Google? (Google kræver `configure_social_auth`)
-2. **AI-model**: OK med `openai/gpt-5.5` som default, eller foretrækker du `google/gemini-2.5-pro`?
+`print_content` shape:
 
-Bekræft planen (og de to valg), så starter jeg på Fase 1.
+```ts
+{
+  title: string,              // max 4 ord
+  age_group: AgeGroup,
+  intro: string,              // 20–30 ord
+  development_areas: string[],// max 3, vises som chips m. ikoner
+  materials: string,          // én linje, fx "Ingen" eller "Et tæppe"
+  steps: string[],            // 3–5 korte sætninger
+  variations: string[],       // max 2
+  look_for: string,           // 1 sætning ("Se efter")
+  pause_if: string,           // 1 linje ("Pause hvis")
+  did_you_know?: string,      // valgfri, 15–20 ord, skjules hvis pladsmangel
+  safety?: string             // kun hvis aktivitetsspecifik
+}
+```
+
+Tekstbudget: 120–170 ord ideelt, hårdt loft 190. Utility `countWords(printContent)` + indikator ("148 / 190 ord", grøn/gul/rød).
+
+## 4. AI-generering opdateres
+
+`generateCard` server-fn får ny prompt:
+- Genererer direkte i `print_content`-shape
+- Instrueres eksplicit: "tekst til et fysisk 105×148 mm kort, ikke en artikel"
+- Prioriterer klarhed, handling, varme, sikkerhed, korthed
+- Fjerner generiske sikkerhedsfraser
+- Genererer også `extended_content` (længere version) og `illustration_prompt` i samme kald via strukturert output
+
+Ny server-fn `shortenCardText({ card })` — kaldes af "Forkort med AI"-knappen når word count > 190. Bevarer aktivitetens kerne.
+
+## 5. Forside-layout (ny komponent)
+
+`src/components/card-front.tsx` — én komponent, faste proportioner fra `card-format.ts`. Layout:
+
+```text
+┌──────────────────────────────┐  ← bleed
+│ ┌──────────────────────────┐ │  ← trim
+│ │  Titel                   │ │  ← safe area
+│ │  0–2 måneder · ●●●       │ │
+│ │                          │ │
+│ │  Kort intro (20–30 ord)  │ │
+│ │                          │ │
+│ │  Materialer  Ingen       │ │
+│ │                          │ │
+│ │  Sådan gør I             │ │
+│ │  1. …                    │ │
+│ │  2. …                    │ │
+│ │                          │ │
+│ │  Prøv også · Se efter    │ │
+│ │  Pause hvis · Vidste du? │ │
+│ └──────────────────────────┘ │
+└──────────────────────────────┘
+```
+
+Ingen store sektionstitler, ingen vandrette streger. Struktur via typografi, spacing, små ikoner, diskret aldersfarve som accent (ikke fyldfarve).
+
+## 6. Bagside
+
+`src/components/card-back.tsx`:
+- Illustration som dominant element (eller elegant SVG-placeholder når `illustration_status = not_generated`)
+- Lille titel nederst, kortnummer, diskret brandmark
+- Samme grundlayout på alle kort; kun illustrationen varierer
+- Aldersfarve som subtil baggrundstone
+
+Placeholderen er en håndtegnet SVG med organiske former i palettens farver — demonstrerer intenderet stil.
+
+## 7. Editor redesignes
+
+`src/routes/_authenticated/kort.$id.tsx` får tre tabs:
+
+- **Indhold** — redigér `print_content` felter, live word count, "Forkort med AI"-knap, toggle mellem print/udvidet version
+- **Design** — aldersfarve, illustration_prompt, illustration_status, placeholder preview
+- **Print** — forside/bagside/begge-toggle, bleed/safe area toggle, print preview
+
+Desktop viser forside og bagside side om side.
+
+## 8. Print-preview & printark
+
+Ny route `src/routes/_authenticated/kort.$id.print.tsx`:
+- Sider vises i reelle proportioner (mm → px via CSS `mm`-enheder)
+- Toggle: hjælpelinjer (trim/bleed/safe area) on/off, default off
+- Printark-tab: vælg A4/A3, systemet placerer kort med bleed og crop marks
+- Knap "Eksportér til print-PDF" — vises som "beta"; første iteration bruger `window.print()` med `@page` CSS til korrekt størrelse. Rigtig PDF-eksport forberedes men markeres kommer-snart hvis ikke færdig.
+
+## 9. Fit-to-card validering
+
+Utility `validateFit(printContent)`:
+- Beregner estimeret højde ved minimum brødtekst font size (bestemt i card-format.ts, fx 9pt)
+- Returnerer `{ fits: boolean, wordCount, warnings[] }`
+- Ved overskridelse: UI viser advarsel + "Forkort med AI"-knap
+- Systemet skalerer ikke tekst nedad under minimum — det beder om forkortelse
+
+## 10. Migrations-strategi for eksisterende kort
+
+- Migration tilføjer kun kolonner, sætter ingen `print_content`
+- Ved læsning: hvis `print_content` er null, mapper UI'et gamle felter → provisorisk print-view + sætter `needs_shortening = true` (ord > 190)
+- Bibliotek viser badge "Skal forkortes" på berørte kort
+- Bruger klikker → "Forkort med AI" → godkender → gemmes i `print_content`
+- Intet slettes eller overskrives automatisk
+
+## 11. Filer der oprettes/ændres
+
+Nye:
+- `src/lib/card-format.ts` — dimensioner, safe area, min font size
+- `src/lib/card-text.ts` — word count, validateFit, mapping fra legacy
+- `src/components/card-front.tsx`, `card-back.tsx`, `card-spread.tsx` (side-om-side)
+- `src/components/print-sheet.tsx` — A4/A3 imposition
+- `src/components/illustration-placeholder.tsx`
+- `src/routes/_authenticated/kort.$id.print.tsx`
+
+Ændres:
+- `src/lib/card-schema.ts` — nye Zod-skemaer for print/extended
+- `src/lib/cards.functions.ts` — ny prompt, `shortenCardText`, `regenerateIllustrationPrompt`
+- `src/routes/_authenticated/kort.$id.tsx` — tabs, word count, forkort-knap
+- `src/routes/_authenticated/generer.tsx` — bruger ny prompt, viser word count i preview
+- `src/routes/_authenticated/bibliotek.tsx` — badge "Skal forkortes", link til print-view
+- `src/components/card-preview.tsx` — erstattes af `card-front.tsx` (eller wrapper)
+- `src/styles.css` — utilities for mm-enheder, print `@page` regler
+
+Database: én ny migration med de nævnte kolonner.
+
+## 12. Implementeringsrækkefølge
+
+Følger den prioriterede rækkefølge fra briefet: format → datamodel → forside-layout → tekstbudget → AI-prompt → fit-validering → bagside → illustration_prompt → print preview → editor-tabs → printark → PDF-forberedelse. Ét kort perfektioneres først; derefter rulles ud på biblioteket.
+
+---
+
+Godkend planen, så starter jeg med migration + card-format modul + nyt forside-layout på ét kort.

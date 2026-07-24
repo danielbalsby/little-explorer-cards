@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Copy, Lock, Unlock, Trash2, Check, X, Save } from "lucide-react";
+import { Copy, Lock, Unlock, Trash2, Check, X, Save, Printer } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/kort/$id")({
   head: () => ({ meta: [{ title: "Redigér kort — Babykort" }] }),
@@ -106,6 +107,9 @@ function CardEditor() {
           <h1 className="font-serif text-3xl mt-1">{form.title || "Uden titel"}</h1>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Link to="/kort/$id/print" params={{ id }}>
+            <Button variant="outline" size="sm"><Printer className="mr-1.5 h-4 w-4" /> Print preview</Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={checkSim}>Kontrollér original</Button>
           <Button variant="outline" size="sm" onClick={() => dupM.mutate()}><Copy className="mr-1.5 h-4 w-4" /> Duplikér</Button>
           <Button variant="outline" size="sm" onClick={() => lockM.mutate(!locked)}>

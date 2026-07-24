@@ -43,7 +43,52 @@ export const STATUS_LABEL: Record<CardStatus, string> = {
   rejected: "Afvist",
 };
 
-// AI output schema — strict-compatible (all required, .nullable for optional)
+export const ILLUSTRATION_STATUSES = ["not_generated", "draft", "approved"] as const;
+export type IllustrationStatus = (typeof ILLUSTRATION_STATUSES)[number];
+
+// ---- NYT: Print-indhold (forsiden på det fysiske kort) ----
+// Alle felter påkrævet for at være OpenAI-strict-kompatibel;
+// tomme strenge "" er tilladt for did_you_know / safety.
+export const PrintContentSchema = z.object({
+  title: z.string(),
+  age_group: z.enum(AGE_GROUPS),
+  intro: z.string(),
+  development_areas: z.array(z.string()),
+  materials: z.string(),
+  steps: z.array(z.string()),
+  variations: z.array(z.string()),
+  look_for: z.string(),
+  pause_if: z.string(),
+  did_you_know: z.string(),
+  safety: z.string(),
+});
+export type PrintContent = z.infer<typeof PrintContentSchema>;
+
+// ---- Udvidet (digital) indhold ----
+export const ExtendedContentSchema = z.object({
+  purpose: z.string(),
+  activity_steps: z.array(z.string()),
+  variations: z.array(z.string()),
+  observations: z.string(),
+  pause_signs: z.string(),
+  safety: z.string(),
+  did_you_know: z.string(),
+});
+export type ExtendedContent = z.infer<typeof ExtendedContentSchema>;
+
+// ---- AI-output: alt i ét kald ----
+export const GeneratedCardSchema = z.object({
+  print: PrintContentSchema,
+  extended: ExtendedContentSchema,
+  illustration_prompt: z.string(),
+  activity_type: z.string(),
+  duration: z.string(),
+  primary_development_area: z.string(),
+  secondary_development_areas: z.array(z.string()),
+});
+export type GeneratedCard = z.infer<typeof GeneratedCardSchema>;
+
+// Legacy (bevares for bagudkompatibilitet — bruges stadig af nogle steder)
 export const CardContentSchema = z.object({
   title: z.string(),
   age_group: z.enum(AGE_GROUPS),
@@ -93,9 +138,9 @@ export function jaccard(a: string, b: string) {
 }
 
 export function cardCorpus(c: {
-  title: string; purpose: string;
-  materials: unknown; activity_steps: unknown;
+  title: string; purpose?: string;
+  materials?: unknown; activity_steps?: unknown;
 }) {
   const arr = (v: unknown) => Array.isArray(v) ? v.join(" ") : "";
-  return `${c.title} ${c.purpose} ${arr(c.materials)} ${arr(c.activity_steps)}`;
+  return `${c.title} ${c.purpose ?? ""} ${arr(c.materials)} ${arr(c.activity_steps)}`;
 }
