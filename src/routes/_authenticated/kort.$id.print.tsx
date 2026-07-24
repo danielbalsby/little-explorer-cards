@@ -6,9 +6,10 @@ import { CardFront } from "@/components/card-front";
 import { CardBack } from "@/components/card-back";
 import { PrintSheet } from "@/components/print-sheet";
 import { resolvePrintContent } from "@/lib/card-text";
-import type { AgeGroup, IllustrationStatus } from "@/lib/card-schema";
+import type { IllustrationStatus } from "@/lib/card-schema";
 import { Button } from "@/components/ui/button";
 import { SHEET_FORMATS, type SheetFormat } from "@/lib/card-format";
+import { useBrandSettings } from "@/hooks/use-brand-settings";
 import { ArrowLeft, Printer } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/kort/$id/print")({
@@ -22,16 +23,17 @@ function PrintPreview() {
     queryKey: ["card", id],
     queryFn: async () => (await supabase.from("cards").select("*").eq("id", id).single()).data,
   });
+  const brand = useBrandSettings();
 
   const [side, setSide] = useState<"front" | "back" | "both">("both");
   const [guides, setGuides] = useState(false);
   const [mode, setMode] = useState<"single" | "sheet">("single");
   const [sheet, setSheet] = useState<SheetFormat>("A4");
+  const [sheetSide, setSheetSide] = useState<"front" | "back">("front");
 
   if (!card) return <div className="p-10 text-muted-foreground">Indlæser…</div>;
 
   const { print } = resolvePrintContent(card as never);
-  const age = (print.age_group as AgeGroup) ?? "2-4m";
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
@@ -42,7 +44,9 @@ function PrintPreview() {
           </Link>
           <div>
             <h1 className="font-serif text-2xl">{card.title}</h1>
-            <div className="text-xs text-muted-foreground">#{String(card.card_number).padStart(3, "0")}</div>
+            <div className="text-xs text-muted-foreground">
+              #{String(card.card_number).padStart(3, "0")} · duplex: {brand.duplex_flip === "long_edge" ? "lang kant" : "kort kant"}
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -50,7 +54,10 @@ function PrintPreview() {
           {mode === "single" ? (
             <Toggle values={["front", "back", "both"]} labels={{ front: "Forside", back: "Bagside", both: "Begge" }} value={side} onChange={setSide} />
           ) : (
-            <Toggle values={["A4", "A3"]} labels={{ A4: "A4", A3: "A3" }} value={sheet} onChange={setSheet} />
+            <>
+              <Toggle values={["front", "back"]} labels={{ front: "Front sheet", back: "Back sheet" }} value={sheetSide} onChange={setSheetSide} />
+              <Toggle values={["A4", "A3"]} labels={{ A4: "A4", A3: "A3" }} value={sheet} onChange={setSheet} />
+            </>
           )}
           <label className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border">
             <input type="checkbox" checked={guides} onChange={(e) => setGuides(e.target.checked)} />
@@ -58,9 +65,6 @@ function PrintPreview() {
           </label>
           <Button size="sm" onClick={() => window.print()}>
             <Printer className="mr-1.5 h-4 w-4" /> Print / PDF
-          </Button>
-          <Button size="sm" variant="outline" disabled title="Kommer snart">
-            Print-PDF · beta
           </Button>
         </div>
       </header>
@@ -84,7 +88,7 @@ function PrintPreview() {
           <div className="space-y-6">
             <PrintSheet
               sheet={sheet}
-              side="front"
+              side={sheetSide}
               guides={guides}
               cards={Array.from({ length: 20 }).map(() => ({
                 print,
@@ -94,7 +98,9 @@ function PrintPreview() {
               }))}
             />
             <p className="text-center text-xs text-muted-foreground">
-              Forside · {sheet} ({SHEET_FORMATS[sheet].width}×{SHEET_FORMATS[sheet].height} mm)
+              {sheetSide === "front" ? "Forside" : "Bagside (global master)"} ·{" "}
+              {sheet} ({SHEET_FORMATS[sheet].width}×{SHEET_FORMATS[sheet].height} mm) · duplex{" "}
+              {brand.duplex_flip === "long_edge" ? "lang kant" : "kort kant"}
             </p>
           </div>
         )}
