@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,14 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  if (!mounted) return null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
