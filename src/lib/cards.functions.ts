@@ -846,3 +846,151 @@ export const analyzeSeriesStrength = createServerFn({ method: "GET" })
     };
   });
 
+// ================================================================
+// V5: Gold Standard & sprogligt gentagelses-detektor
+// ================================================================
+
+type GoldRef = {
+  id: string;
+  card_number: number;
+  title: string;
+  age_group?: string | null;
+  parent_category?: string | null;
+  activity_mechanics?: string[] | null;
+  print_content?: unknown;
+};
+
+function pickReferences(
+  pool: GoldRef[],
+  target: { age_group?: string; parent_category?: string; activity_mechanics?: string[]; limit?: number },
+): GoldRef[] {
+  const limit = target.limit ?? 3;
+  const targetMechs = new Set((target.activity_mechanics ?? []));
+  const scored = pool.map((r) => {
+    let score = 0;
+    if (target.age_group && r.age_group === target.age_group) score += 3;
+    if (target.parent_category && r.parent_category === target.parent_category) score += 2;
+    const overlap = (r.activity_mechanics ?? []).filter((m) => targetMechs.has(m)).length;
+    // Vi vil helst have referencer med ANDEN mekanik (kvalitet, ikke kopi)
+    score -= overlap;
+    return { r, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.r);
+}
+
+// ---- Markér / fjern Gold Standard ----
+const MarkGoldInput = z.object({
+  id: z.string(),
+  reason: z.string().min(3),
+  tags: z.array(z.string()).default([]),
+});
+export const markAsGoldStandard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => MarkGoldInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { data: current } = await context.supabase.from("cards").select("status").eq("id", data.id).maybeSingle();
+    if (!current) throw new Error("Kort ikke fundet");
+    if (current.status !== "approved") throw new Error("Kun godkendte kort kan markeres som Gold Standard.");
+    const { error } = await context.supabase.from("cards").update({
+      is_gold_standard: true,
+      gold_standard_reason: data.reason,
+      gold_standard_tags: data.tags,
+    }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+export const unmarkGoldStandard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("cards")
+      .update({ is_gold_standard: false })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+// ---- Sprogligt gentagelses-detektor (n-gram scan på approved + candidate kort) ----
+function tokenizeSentence(s: string): string[] {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+}
+function ngrams(tokens: string[], n: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i <= tokens.length - n; i++) out.push(tokens.slice(i, i + n).join(" "));
+  return out;
+}
+const STOP_STARTS = new Set(["og","i","det","en","et","der","som","at","på","til","med","for","de","du","din","dit"]);
+
+export const detectLanguageRepetition = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: cards } = await context.supabase
+      .from("cards")
+      .select("id, title, print_content")
+      .in("status", ["approved", "candidate", "draft"]);
+    const list = cards ?? [];
+    const phraseCounts: Record<string, Set<string>> = {}; // phrase -> set of card ids
+    const titleStarts: Record<string, number> = {};
+
+    for (const c of list) {
+      const p = (c.print_content ?? {}) as { intro?: string; look_for?: string; pause_if?: string };
+      const sources = [p.intro ?? "", p.look_for ?? "", p.pause_if ?? ""];
+      for (const s of sources) {
+        const toks = tokenizeSentence(s);
+        for (const n of [3, 4, 5]) {
+          for (const g of ngrams(toks, n)) {
+            const first = g.split(" ")[0];
+            if (STOP_STARTS.has(first)) continue;
+            if (!phraseCounts[g]) phraseCounts[g] = new Set();
+            phraseCounts[g].add(c.id);
+          }
+        }
+      }
+      const titleFirstWord = (c.title ?? "").split(/\s+/)[0]?.toLowerCase();
+      if (titleFirstWord) titleStarts[titleFirstWord] = (titleStarts[titleFirstWord] ?? 0) + 1;
+    }
+
+    const phrases = Object.entries(phraseCounts)
+      .map(([phrase, ids]) => ({ phrase, count: ids.size }))
+      .filter((x) => x.count >= 3)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 30);
+
+    const repeatedTitleStarts = Object.entries(titleStarts)
+      .filter(([, n]) => n >= 3)
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return { phrases, repeatedTitleStarts, totalCards: list.length };
+  });
+
+// ---- Gold Standard coverage (til projektbalance) ----
+export const goldStandardCoverage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("cards")
+      .select("id, card_number, title, age_group, parent_category, caregiver_energy, setup_level, activity_mechanics")
+      .eq("is_gold_standard", true);
+    const list = data ?? [];
+    const perAge: Record<string, number> = {};
+    const perCategory: Record<string, number> = {};
+    const perEnergy: Record<string, number> = {};
+    const perMechanic: Record<string, number> = {};
+    for (const c of list) {
+      perAge[c.age_group] = (perAge[c.age_group] ?? 0) + 1;
+      if (c.parent_category) perCategory[c.parent_category] = (perCategory[c.parent_category] ?? 0) + 1;
+      if (c.caregiver_energy) perEnergy[c.caregiver_energy] = (perEnergy[c.caregiver_energy] ?? 0) + 1;
+      for (const m of ((c.activity_mechanics ?? []) as string[])) perMechanic[m] = (perMechanic[m] ?? 0) + 1;
+    }
+    const warnings: string[] = [];
+    if (list.length > 15) warnings.push(`Gold Standard-sættet har ${list.length} kort. Et lille, skarpt referencesæt (8–15) giver bedre styring.`);
+    const domMech = Object.entries(perMechanic).sort((a, b) => b[1] - a[1])[0];
+    if (list.length >= 5 && domMech && domMech[1] / list.length > 0.6) {
+      warnings.push(`${domMech[1]} af ${list.length} referencekort bruger ${domMech[0]}. Overvej mere mekanik-variation.`);
+    }
+    return { total: list.length, list, perAge, perCategory, perEnergy, perMechanic, warnings };
+  });
+
