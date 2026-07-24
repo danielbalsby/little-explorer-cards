@@ -93,10 +93,12 @@ export type Database = {
       }
       cards: {
         Row: {
+          activity_in_one_sentence: string | null
           activity_mechanics: Json
           activity_steps: Json
           activity_type: string
           age_group: Database["public"]["Enums"]["age_group"]
+          blocking_issues: Json
           card_number: number
           card_type: string
           caregiver_energy: string | null
@@ -114,14 +116,21 @@ export type Database = {
           fact_statement: string | null
           fact_verified: boolean
           fact_verified_at: string | null
+          five_second_test: string | null
           generation_rationale: string | null
+          gold_standard_added_at: string | null
+          gold_standard_reason: string | null
+          gold_standard_removed_at: string | null
+          gold_standard_tags: Json
           good_when: Json
           id: string
           illustration_prompt: string | null
           illustration_quality: Json | null
           illustration_status: string
           illustration_url: string | null
+          intro_pattern: string | null
           is_demo: boolean
+          is_gold_standard: boolean
           is_locked: boolean
           materials: Json
           needs_shortening: boolean
@@ -133,6 +142,7 @@ export type Database = {
           print_fit_percentage: number | null
           purpose: string
           quality_score: Json | null
+          reason_to_exist: string | null
           rejection_reason: string | null
           safety: string
           secondary_development_areas: Json
@@ -145,10 +155,12 @@ export type Database = {
           version: number
         }
         Insert: {
+          activity_in_one_sentence?: string | null
           activity_mechanics?: Json
           activity_steps?: Json
           activity_type?: string
           age_group: Database["public"]["Enums"]["age_group"]
+          blocking_issues?: Json
           card_number?: number
           card_type?: string
           caregiver_energy?: string | null
@@ -166,14 +178,21 @@ export type Database = {
           fact_statement?: string | null
           fact_verified?: boolean
           fact_verified_at?: string | null
+          five_second_test?: string | null
           generation_rationale?: string | null
+          gold_standard_added_at?: string | null
+          gold_standard_reason?: string | null
+          gold_standard_removed_at?: string | null
+          gold_standard_tags?: Json
           good_when?: Json
           id?: string
           illustration_prompt?: string | null
           illustration_quality?: Json | null
           illustration_status?: string
           illustration_url?: string | null
+          intro_pattern?: string | null
           is_demo?: boolean
+          is_gold_standard?: boolean
           is_locked?: boolean
           materials?: Json
           needs_shortening?: boolean
@@ -185,6 +204,7 @@ export type Database = {
           print_fit_percentage?: number | null
           purpose?: string
           quality_score?: Json | null
+          reason_to_exist?: string | null
           rejection_reason?: string | null
           safety?: string
           secondary_development_areas?: Json
@@ -197,10 +217,12 @@ export type Database = {
           version?: number
         }
         Update: {
+          activity_in_one_sentence?: string | null
           activity_mechanics?: Json
           activity_steps?: Json
           activity_type?: string
           age_group?: Database["public"]["Enums"]["age_group"]
+          blocking_issues?: Json
           card_number?: number
           card_type?: string
           caregiver_energy?: string | null
@@ -218,14 +240,21 @@ export type Database = {
           fact_statement?: string | null
           fact_verified?: boolean
           fact_verified_at?: string | null
+          five_second_test?: string | null
           generation_rationale?: string | null
+          gold_standard_added_at?: string | null
+          gold_standard_reason?: string | null
+          gold_standard_removed_at?: string | null
+          gold_standard_tags?: Json
           good_when?: Json
           id?: string
           illustration_prompt?: string | null
           illustration_quality?: Json | null
           illustration_status?: string
           illustration_url?: string | null
+          intro_pattern?: string | null
           is_demo?: boolean
+          is_gold_standard?: boolean
           is_locked?: boolean
           materials?: Json
           needs_shortening?: boolean
@@ -237,6 +266,7 @@ export type Database = {
           print_fit_percentage?: number | null
           purpose?: string
           quality_score?: Json | null
+          reason_to_exist?: string | null
           rejection_reason?: string | null
           safety?: string
           secondary_development_areas?: Json
