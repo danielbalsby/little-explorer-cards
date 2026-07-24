@@ -3,16 +3,15 @@ import { PAPER_TEXTURE, VARIANT_PALETTE } from "@/lib/card-variants";
 
 export const P = VARIANT_PALETTE;
 
-export function cardShell(scale: number, bg = P.ivory): React.CSSProperties {
-  const { trim, bleed, cornerRadius } = CARD_FORMAT;
+export function cardShell(scale: number): React.CSSProperties {
+  const { trim, bleed } = CARD_FORMAT;
   return {
     width: `${(trim.width + bleed * 2) * scale}mm`,
     height: `${(trim.height + bleed * 2) * scale}mm`,
     padding: `${bleed * scale}mm`,
     position: "relative",
     background: "transparent",
-    ["--card-scale" as string]: String(scale),
-  } as React.CSSProperties & Record<string, string>;
+  };
 }
 
 export function cardTrim(scale: number, bg = P.ivory): React.CSSProperties {
