@@ -18,6 +18,7 @@ import { Route as AuthenticatedDesignmanualRouteImport } from './routes/_authent
 import { Route as AuthenticatedBibliotekRouteImport } from './routes/_authenticated/bibliotek'
 import { Route as AuthenticatedBalanceRouteImport } from './routes/_authenticated/balance'
 import { Route as AuthenticatedKortIdRouteImport } from './routes/_authenticated/kort.$id'
+import { Route as AuthenticatedKortIdPrintRouteImport } from './routes/_authenticated/kort.$id.print'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -65,6 +66,12 @@ const AuthenticatedKortIdRoute = AuthenticatedKortIdRouteImport.update({
   path: '/kort/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedKortIdPrintRoute =
+  AuthenticatedKortIdPrintRouteImport.update({
+    id: '/print',
+    path: '/print',
+    getParentRoute: () => AuthenticatedKortIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -74,7 +81,8 @@ export interface FileRoutesByFullPath {
   '/designmanual': typeof AuthenticatedDesignmanualRoute
   '/generer': typeof AuthenticatedGenererRoute
   '/indstillinger': typeof AuthenticatedIndstillingerRoute
-  '/kort/$id': typeof AuthenticatedKortIdRoute
+  '/kort/$id': typeof AuthenticatedKortIdRouteWithChildren
+  '/kort/$id/print': typeof AuthenticatedKortIdPrintRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -84,7 +92,8 @@ export interface FileRoutesByTo {
   '/generer': typeof AuthenticatedGenererRoute
   '/indstillinger': typeof AuthenticatedIndstillingerRoute
   '/': typeof AuthenticatedIndexRoute
-  '/kort/$id': typeof AuthenticatedKortIdRoute
+  '/kort/$id': typeof AuthenticatedKortIdRouteWithChildren
+  '/kort/$id/print': typeof AuthenticatedKortIdPrintRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,7 +105,8 @@ export interface FileRoutesById {
   '/_authenticated/generer': typeof AuthenticatedGenererRoute
   '/_authenticated/indstillinger': typeof AuthenticatedIndstillingerRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/kort/$id': typeof AuthenticatedKortIdRoute
+  '/_authenticated/kort/$id': typeof AuthenticatedKortIdRouteWithChildren
+  '/_authenticated/kort/$id/print': typeof AuthenticatedKortIdPrintRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/generer'
     | '/indstillinger'
     | '/kort/$id'
+    | '/kort/$id/print'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/indstillinger'
     | '/'
     | '/kort/$id'
+    | '/kort/$id/print'
   id:
     | '__root__'
     | '/_authenticated'
@@ -130,6 +142,7 @@ export interface FileRouteTypes {
     | '/_authenticated/indstillinger'
     | '/_authenticated/'
     | '/_authenticated/kort/$id'
+    | '/_authenticated/kort/$id/print'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,8 +215,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKortIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/kort/$id/print': {
+      id: '/_authenticated/kort/$id/print'
+      path: '/print'
+      fullPath: '/kort/$id/print'
+      preLoaderRoute: typeof AuthenticatedKortIdPrintRouteImport
+      parentRoute: typeof AuthenticatedKortIdRoute
+    }
   }
 }
+
+interface AuthenticatedKortIdRouteChildren {
+  AuthenticatedKortIdPrintRoute: typeof AuthenticatedKortIdPrintRoute
+}
+
+const AuthenticatedKortIdRouteChildren: AuthenticatedKortIdRouteChildren = {
+  AuthenticatedKortIdPrintRoute: AuthenticatedKortIdPrintRoute,
+}
+
+const AuthenticatedKortIdRouteWithChildren =
+  AuthenticatedKortIdRoute._addFileChildren(AuthenticatedKortIdRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBalanceRoute: typeof AuthenticatedBalanceRoute
@@ -212,7 +243,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGenererRoute: typeof AuthenticatedGenererRoute
   AuthenticatedIndstillingerRoute: typeof AuthenticatedIndstillingerRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedKortIdRoute: typeof AuthenticatedKortIdRoute
+  AuthenticatedKortIdRoute: typeof AuthenticatedKortIdRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -222,7 +253,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGenererRoute: AuthenticatedGenererRoute,
   AuthenticatedIndstillingerRoute: AuthenticatedIndstillingerRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedKortIdRoute: AuthenticatedKortIdRoute,
+  AuthenticatedKortIdRoute: AuthenticatedKortIdRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =
