@@ -62,13 +62,19 @@ export type Database = {
           created_by: string | null
           did_you_know: string
           duration: string
+          extended_content: Json | null
           id: string
+          illustration_prompt: string | null
+          illustration_status: string
+          illustration_url: string | null
           is_demo: boolean
           is_locked: boolean
           materials: Json
+          needs_shortening: boolean
           observations: string
           pause_signs: string
           primary_development_area: string
+          print_content: Json | null
           purpose: string
           safety: string
           secondary_development_areas: Json
@@ -88,13 +94,19 @@ export type Database = {
           created_by?: string | null
           did_you_know?: string
           duration?: string
+          extended_content?: Json | null
           id?: string
+          illustration_prompt?: string | null
+          illustration_status?: string
+          illustration_url?: string | null
           is_demo?: boolean
           is_locked?: boolean
           materials?: Json
+          needs_shortening?: boolean
           observations?: string
           pause_signs?: string
           primary_development_area?: string
+          print_content?: Json | null
           purpose?: string
           safety?: string
           secondary_development_areas?: Json
@@ -114,13 +126,19 @@ export type Database = {
           created_by?: string | null
           did_you_know?: string
           duration?: string
+          extended_content?: Json | null
           id?: string
+          illustration_prompt?: string | null
+          illustration_status?: string
+          illustration_url?: string | null
           is_demo?: boolean
           is_locked?: boolean
           materials?: Json
+          needs_shortening?: boolean
           observations?: string
           pause_signs?: string
           primary_development_area?: string
+          print_content?: Json | null
           purpose?: string
           safety?: string
           secondary_development_areas?: Json
