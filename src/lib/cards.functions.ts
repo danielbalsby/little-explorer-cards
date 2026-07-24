@@ -228,6 +228,12 @@ const SaveCardInput = z.object({
     editor_notes: z.string().optional(),
     print_fit_percentage: z.number().optional(),
     illustration_quality: z.record(z.string(), z.unknown()).optional(),
+    // V5-metadata
+    reason_to_exist: z.string().optional(),
+    activity_in_one_sentence: z.string().optional(),
+    five_second_test: z.string().optional(),
+    intro_pattern: z.string().optional(),
+    blocking_issues: z.array(z.string()).optional(),
 });
 
 export const saveCard = createServerFn({ method: "POST" })
@@ -280,6 +286,11 @@ export const saveCard = createServerFn({ method: "POST" })
     if (data.editor_notes !== undefined) payload.editor_notes = data.editor_notes;
     if (data.print_fit_percentage !== undefined) payload.print_fit_percentage = data.print_fit_percentage;
     if (data.illustration_quality !== undefined) payload.illustration_quality = data.illustration_quality;
+    if (data.reason_to_exist !== undefined) payload.reason_to_exist = data.reason_to_exist;
+    if (data.activity_in_one_sentence !== undefined) payload.activity_in_one_sentence = data.activity_in_one_sentence;
+    if (data.five_second_test !== undefined) payload.five_second_test = data.five_second_test;
+    if (data.intro_pattern !== undefined) payload.intro_pattern = data.intro_pattern;
+    if (data.blocking_issues !== undefined) payload.blocking_issues = data.blocking_issues;
 
     // Konvertér materialer hvis print (én linje) → array til legacy-felt
     if (data.print && !data.extended && !data.content) {
@@ -623,47 +634,98 @@ export const rejectCard = createServerFn({ method: "POST" })
 
 import { ReviewScoreSchema, EditorialReviewSchema } from "./card-schema";
 
-// ---- Fuld redaktionel review (10 dimensioner + dom) ----
+// ---- V5: Fælles redaktionel rubrik (bruges i alle review/generate/improve prompts) ----
+const EDITORIAL_RUBRIC = `REDAKTIONEL SMAG (Gold Standard):
+- De bedste kort er meget enkle, konkrete, varme uden at være sødladne, faglige uden at lyde faglige, lette at huske, realistiske for trætte forældre.
+- "Good enough" er IKKE Gold Standard. Belønn ikke et kort blot fordi det er sikkert og kompetent. Et premium-kort skal have en tydelig grund til at eksistere.
+- En klassisk aktivitet er ikke automatisk dårlig, men hvis samlingen allerede dækker samme oplevelse, anbefal revision eller afvisning.
+- Score-definition:
+  5 = Exceptionelt stærkt. Ingen oplagt forbedring.
+  4 = Meget godt. Små forbedringer mulige.
+  3 = Acceptabelt, men et reelt problem. Bør forbedres før godkendelse.
+  2 = Svagt. Betydelig revision nødvendig.
+  1 = Bør ikke bruges.
+- Brug 2 og 3 når det passer. Overfokusér ikke på gennemsnit — én kritisk svaghed (fx originalitet=2) betyder "kræver revision" selv hvis alt andet er 5.
+- Undgå at rose kort som er "korrekt, men kedeligt, generisk eller overflødigt". Sig det ærligt.
+
+ANTI-AI-TONE:
+- Undgå poetiske vendinger, generiske varme fraser, abstrakt faglighed, marketingsprog.
+- Varmen skal komme fra situationens enkelhed, ikke fra mange følelsesord.
+- Falsk præcision (25 cm, 7 sekunder) bruges kun hvis tallet reelt ændrer handlingen/sikkerheden.
+
+STRUKTURREGLER:
+- Standard 3–4 aktivitetstrin. 5 kun hvis nødvendigt. 6 sjældent.
+- Ét kort = én kerneidé. Hvis aktiviteten skifter karakter halvvejs, flyt til "Prøv også" eller fjern.
+- "Pause hvis": max 3–4 tydelige signaler på print.
+- "Se efter" bør have strukturen signal → voksenrespons ("Hvis baby …, så …").
+- Titel: kort, konkret, memorable. Undgå gentagne mønstre ("X-leg", "X-stund", "Lille X").
+
+BLOCKING ISSUES (én er nok til at kortet IKKE kan blive Gold Standard):
+safety, major_overlap, unclear_activity, performance_pressure, poor_age_fit, too_complex, insufficient_value.`;
+
+// ---- Fuld redaktionel review (V5: 17 dimensioner + dom + meta) ----
 const ReviewInput = z.object({
   print: PrintContentSchema,
   parent_category: z.string().optional(),
   activity_mechanics: z.array(z.string()).default([]),
 });
 
-const REVIEW_SYSTEM = `Du er en meget streng, erfaren redaktør på et premium babyaktivitetskort-produkt.
-Dit job er at afgøre om DETTE kort fortjener en plads i den endelige serie (målet er 120 kort — hvert kort skal være unikt værdifuldt).
+const REVIEW_SYSTEM = `Du er en meget streng, erfaren redaktør på et premium babyaktivitetskort-produkt (målet er ~120 stærke kort — hvert kort skal være unikt værdifuldt).
 
-Bedøm på 10 dimensioner, hver på skala 1-5:
-1. presence: nærvær over præstation
-2. clarity: kan en træt forælder følge det uden at læse to gange
-3. warmth: varm, ikke-dømmende, ligeværdig tone
-4. originality: ikke bare "standardøvelse"
-5. safety: er alt væsentligt sikret uden overflødige fraser
-6. age_fit: passer aktiviteten aldersgruppen præcist
-7. no_performance_pressure: intet "barnet skal…", ingen milepæls-jagt
-8. actionable: konkrete handlinger, ikke abstrakte råd
-9. print_fit: passer teksten på et A6 kort (ikke for meget)
-10. parent_language: forældresprog, ikke fagsprog
+${EDITORIAL_RUBRIC}
 
-overall = gennemsnit (afrundet til én decimal).
+Bedøm på 17 dimensioner, hver 1-5 (heltal):
+Kerne: presence, clarity, warmth, originality, safety, age_fit, no_performance_pressure, actionable, print_fit, parent_language.
+Udvidede (V5): baby_agency (kan baby påvirke tempo/retning), reuse_value (kan familien realistisk vende tilbage), transfer_value (lærer forælderen en måde at være sammen på), memorability (kan man huske idéen dagen efter), parent_learning_value (lærer omsorgspersonen noget om samspil), title_quality (klar, varm, memorable, unik), simplicity_score (kan aktiviteten forklares i én sætning).
+overall = gennemsnit afrundet til én decimal.
 
-Derefter DOM:
-- deserves_spot: "ja" (klart værdi), "måske" (kan reddes), "nej" (drop det)
-- editorial_verdict: 1-2 sætninger — din konkrete dom
-- suggested_improvements: 2-4 konkrete tiltag hvis "måske"; tomme hvis "ja"; hvorfor drop hvis "nej"
-- strengths: 1-3 stikord med hvad der virker
-- weaknesses: 1-3 stikord med hvad der ikke virker
-- notes: overordnet redaktionel note
+Derefter:
+- deserves_spot: "ja" | "måske" | "nej"
+- editorial_verdict: 1-2 konkrete sætninger
+- suggested_improvements: 2-4 konkrete tiltag (tomme hvis "ja"; forklaring hvis "nej")
+- strengths / weaknesses: 1-3 stikord hver
+- notes: overordnet note
+- reason_to_exist: ÉN konkret sætning — hvorfor SKAL dette kort eksistere. Dårligt: "det støtter barnets udvikling". Godt: "det giver førstegangsforælderen en konkret måde at skabe turtagning med kun ansigt og stemme". Hvis du ikke kan give en konkret grund → faresignal, sæt lav score på originality/insufficient_value.
+- activity_in_one_sentence: hele aktiviteten i én kort sætning. Hvis den ikke kan → reducer simplicity_score.
+- five_second_test: "pass" hvis en træt forælder forstår aktiviteten på ~5 sekunder, ellers "needs_simplification".
+- intro_pattern: én af direct_action | observation | everyday_context | short_explanation | relational | sensory.
+- blocking_issues: array (kan være tom) af safety, major_overlap, unclear_activity, performance_pressure, poor_age_fit, too_complex, insufficient_value.
+- match_quality: "ja" | "næsten" | "nej" — holder kortet samme kvalitetsniveau som Gold Standard-referencerne (hvis nogen leveres).
+- match_quality_note: max 2 sætninger med begrundelse.
+- title_review_note: kort vurdering af titlen (klarhed, varme, uniqueness).
 
-Vær ærlig. Det er OK at afvise. Det er bedre at have 80 stærke kort end 120 middelmådige.`;
+Vær ærlig. Det er OK at afvise. Bedre 80 stærke kort end 120 middelmådige.`;
 
 export const reviewCard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ReviewInput.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
+
+    // Hent op til 4 Gold Standard-kort som kvalitetsreference (matcher alder + parent_cat hvis muligt).
+    const { data: gsAll } = await context.supabase
+      .from("cards")
+      .select("id, card_number, title, age_group, parent_category, activity_mechanics, print_content")
+      .eq("is_gold_standard", true)
+      .limit(30);
+    const gsList: GoldRef[] = (gsAll ?? []).map((r) => ({
+      ...r,
+      activity_mechanics: Array.isArray(r.activity_mechanics) ? (r.activity_mechanics as string[]) : [],
+    }));
+    const picked = pickReferences(gsList, {
+      age_group: data.print.age_group,
+      parent_category: data.parent_category,
+      activity_mechanics: data.activity_mechanics,
+      limit: 3,
+    });
+
+    const referenceBlock = picked.length
+      ? `\n\nKVALITETSREFERENCER (Gold Standard — MATCH DERES REDAKTIONELLE NIVEAU, KOPIÉR IKKE INDHOLD):\n${picked
+          .map((r) => `#${r.card_number} "${r.title}" — ${(r.activity_mechanics ?? []).join(", ") || "—"}`)
+          .join("\n")}`
+      : "";
 
     try {
       const { output } = await generateText({
@@ -674,11 +736,16 @@ export const reviewCard = createServerFn({ method: "POST" })
 Forældrekategori: ${data.parent_category ?? "(ikke sat)"}
 Mekanik: ${data.activity_mechanics.join(", ") || "(ingen)"}
 Ordantal på print: ${countPrintWords(data.print)}
+${referenceBlock}
 
 ${JSON.stringify(data.print, null, 2)}`,
         output: Output.object({ schema: EditorialReviewSchema }),
       });
-      return { ok: true as const, review: output };
+      return {
+        ok: true as const,
+        review: output,
+        references_used: picked.map((r) => ({ id: r.id, card_number: r.card_number, title: r.title })),
+      };
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {
         return { ok: false as const, error: "Kunne ikke tolke review-svar." };
@@ -780,5 +847,153 @@ export const analyzeSeriesStrength = createServerFn({ method: "GET" })
       avgQuality: scoreN > 0 ? Math.round((scoreSum / scoreN) * 10) / 10 : null,
       avgPrintFit: fitN > 0 ? Math.round(fitSum / fitN) : null,
     };
+  });
+
+// ================================================================
+// V5: Gold Standard & sprogligt gentagelses-detektor
+// ================================================================
+
+type GoldRef = {
+  id: string;
+  card_number: number;
+  title: string;
+  age_group?: string | null;
+  parent_category?: string | null;
+  activity_mechanics?: string[] | null;
+  print_content?: unknown;
+};
+
+function pickReferences(
+  pool: GoldRef[],
+  target: { age_group?: string; parent_category?: string; activity_mechanics?: string[]; limit?: number },
+): GoldRef[] {
+  const limit = target.limit ?? 3;
+  const targetMechs = new Set((target.activity_mechanics ?? []));
+  const scored = pool.map((r) => {
+    let score = 0;
+    if (target.age_group && r.age_group === target.age_group) score += 3;
+    if (target.parent_category && r.parent_category === target.parent_category) score += 2;
+    const overlap = (r.activity_mechanics ?? []).filter((m) => targetMechs.has(m)).length;
+    // Vi vil helst have referencer med ANDEN mekanik (kvalitet, ikke kopi)
+    score -= overlap;
+    return { r, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.r);
+}
+
+// ---- Markér / fjern Gold Standard ----
+const MarkGoldInput = z.object({
+  id: z.string(),
+  reason: z.string().min(3),
+  tags: z.array(z.string()).default([]),
+});
+export const markAsGoldStandard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => MarkGoldInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { data: current } = await context.supabase.from("cards").select("status").eq("id", data.id).maybeSingle();
+    if (!current) throw new Error("Kort ikke fundet");
+    if (current.status !== "approved") throw new Error("Kun godkendte kort kan markeres som Gold Standard.");
+    const { error } = await context.supabase.from("cards").update({
+      is_gold_standard: true,
+      gold_standard_reason: data.reason,
+      gold_standard_tags: data.tags,
+    }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+export const unmarkGoldStandard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("cards")
+      .update({ is_gold_standard: false })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+// ---- Sprogligt gentagelses-detektor (n-gram scan på approved + candidate kort) ----
+function tokenizeSentence(s: string): string[] {
+  return s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+}
+function ngrams(tokens: string[], n: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i <= tokens.length - n; i++) out.push(tokens.slice(i, i + n).join(" "));
+  return out;
+}
+const STOP_STARTS = new Set(["og","i","det","en","et","der","som","at","på","til","med","for","de","du","din","dit"]);
+
+export const detectLanguageRepetition = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: cards } = await context.supabase
+      .from("cards")
+      .select("id, title, print_content")
+      .in("status", ["approved", "candidate", "draft"]);
+    const list = cards ?? [];
+    const phraseCounts: Record<string, Set<string>> = {}; // phrase -> set of card ids
+    const titleStarts: Record<string, number> = {};
+
+    for (const c of list) {
+      const p = (c.print_content ?? {}) as { intro?: string; look_for?: string; pause_if?: string };
+      const sources = [p.intro ?? "", p.look_for ?? "", p.pause_if ?? ""];
+      for (const s of sources) {
+        const toks = tokenizeSentence(s);
+        for (const n of [3, 4, 5]) {
+          for (const g of ngrams(toks, n)) {
+            const first = g.split(" ")[0];
+            if (STOP_STARTS.has(first)) continue;
+            if (!phraseCounts[g]) phraseCounts[g] = new Set();
+            phraseCounts[g].add(c.id);
+          }
+        }
+      }
+      const titleFirstWord = (c.title ?? "").split(/\s+/)[0]?.toLowerCase();
+      if (titleFirstWord) titleStarts[titleFirstWord] = (titleStarts[titleFirstWord] ?? 0) + 1;
+    }
+
+    const phrases = Object.entries(phraseCounts)
+      .map(([phrase, ids]) => ({ phrase, count: ids.size }))
+      .filter((x) => x.count >= 3)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 30);
+
+    const repeatedTitleStarts = Object.entries(titleStarts)
+      .filter(([, n]) => n >= 3)
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return { phrases, repeatedTitleStarts, totalCards: list.length };
+  });
+
+// ---- Gold Standard coverage (til projektbalance) ----
+export const goldStandardCoverage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("cards")
+      .select("id, card_number, title, age_group, parent_category, caregiver_energy, setup_level, activity_mechanics")
+      .eq("is_gold_standard", true);
+    const list = data ?? [];
+    const perAge: Record<string, number> = {};
+    const perCategory: Record<string, number> = {};
+    const perEnergy: Record<string, number> = {};
+    const perMechanic: Record<string, number> = {};
+    for (const c of list) {
+      perAge[c.age_group] = (perAge[c.age_group] ?? 0) + 1;
+      if (c.parent_category) perCategory[c.parent_category] = (perCategory[c.parent_category] ?? 0) + 1;
+      if (c.caregiver_energy) perEnergy[c.caregiver_energy] = (perEnergy[c.caregiver_energy] ?? 0) + 1;
+      for (const m of ((c.activity_mechanics ?? []) as string[])) perMechanic[m] = (perMechanic[m] ?? 0) + 1;
+    }
+    const warnings: string[] = [];
+    if (list.length > 15) warnings.push(`Gold Standard-sættet har ${list.length} kort. Et lille, skarpt referencesæt (8–15) giver bedre styring.`);
+    const domMech = Object.entries(perMechanic).sort((a, b) => b[1] - a[1])[0];
+    if (list.length >= 5 && domMech && domMech[1] / list.length > 0.6) {
+      warnings.push(`${domMech[1]} af ${list.length} referencekort bruger ${domMech[0]}. Overvej mere mekanik-variation.`);
+    }
+    return { total: list.length, list, perAge, perCategory, perEnergy, perMechanic, warnings };
   });
 

@@ -45,7 +45,7 @@ export const STATUS_LABEL: Record<CardStatus, string> = {
   archived: "Arkiveret",
 };
 
-// ---- V4: Redaktionel review (10 dimensioner + dom) ----
+// ---- V4/V5: Redaktionel review ----
 export const ReviewScoreSchema = z.object({
   presence: z.number(),
   clarity: z.number(),
@@ -57,6 +57,13 @@ export const ReviewScoreSchema = z.object({
   actionable: z.number(),
   print_fit: z.number(),
   parent_language: z.number(),
+  baby_agency: z.number(),
+  reuse_value: z.number(),
+  transfer_value: z.number(),
+  memorability: z.number(),
+  parent_learning_value: z.number(),
+  title_quality: z.number(),
+  simplicity_score: z.number(),
   overall: z.number(),
   notes: z.string(),
   strengths: z.array(z.string()),
@@ -69,6 +76,14 @@ export const EditorialReviewSchema = z.object({
   deserves_spot: z.enum(["ja", "måske", "nej"]),
   editorial_verdict: z.string(),
   suggested_improvements: z.array(z.string()),
+  reason_to_exist: z.string(),
+  activity_in_one_sentence: z.string(),
+  five_second_test: z.string(),
+  intro_pattern: z.string(),
+  blocking_issues: z.array(z.string()),
+  match_quality: z.string(),
+  match_quality_note: z.string(),
+  title_review_note: z.string(),
 });
 export type EditorialReview = z.infer<typeof EditorialReviewSchema>;
 

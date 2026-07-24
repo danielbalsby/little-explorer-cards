@@ -1,111 +1,82 @@
 
-# Version 4 — Redaktionelt review-flow
+# Version 5 — Gold Standard & redaktionel smag
 
-Bevar alt eksisterende (data, kort, generator, print, designmanual, balance). Kun additive ændringer.
+Bevar alt eksisterende. Kun additive ændringer, ingen nye dashboards ud over det nødvendige.
 
 ## 1. Database (én migration)
 
 Udvid `cards`:
-- `status` — udvid enum med `candidate` og `archived` (behold `draft`, `approved`, `rejected`)
-- `deserves_spot text` — `yes` | `maybe` | `no`
-- `editorial_verdict text` — kort samlet dom fra AI
-- `editor_notes text` — internt redaktørfelt
-- `print_fit_percentage numeric` — reel målt fit
-- `illustration_quality jsonb` — {match, style_fit, too_generic, too_detailed, warmth}
+- `is_gold_standard boolean default false`
+- `gold_standard_reason text`
+- `gold_standard_tags jsonb default '[]'` — menneskelig begrundelse (multi-select)
+- `gold_standard_added_at timestamptz`, `gold_standard_removed_at timestamptz`
+- `reason_to_exist text`
+- `activity_in_one_sentence text`
+- `five_second_test text` — `pass` | `needs_simplification`
+- `intro_pattern text` — direct_action | observation | everyday_context | short_explanation | relational | sensory
+- `blocking_issues jsonb default '[]'` — safety | major_overlap | unclear_activity | performance_pressure | poor_age_fit | too_complex | insufficient_value
+- Udvid `quality_score` (jsonb, ingen skemaændring) med nye dimensioner: `baby_agency`, `reuse_value`, `transfer_value`, `memorability`, `parent_learning_value`, `title_quality`, `simplicity_score`, `match_quality` (ja|næsten|nej + note), `references_used` (array af card_ids).
 
-Ny tabel `editorial_feedback`:
-- `card_id`, `feedback_type` (rejection|improvement|approval), `feedback_reasons jsonb`, `feedback_note text`, `action_taken text`, `created_by`, `created_at`
+Constraint: kun `approved` kan sættes til `is_gold_standard = true` (check trigger).
 
-Version-noter: brug eksisterende `card_versions.change_note` til AI-ændringsforklaringer (ingen skemaændring).
+## 2. AI-lag (`src/lib/cards.functions.ts`)
 
-## 2. AI-pipeline udvidelser (`src/lib/cards.functions.ts`)
+Udvid, tilføj ikke helt nye pipelines:
+- `reviewCard` udvides: nye dimensioner, `blocking_issues`, `reason_to_exist`, `activity_in_one_sentence`, `five_second_test`, `title_review`, `match_quality` mod udvalgte Gold Standard-kort, sprogligt gentagelses-flag.
+- Ny `pickGoldStandardReferences(input)` — vælger 2–4 GS-kort (match alder+parent_category+energy, undgå samme mechanic).
+- `generateSmartCard` og `improveCard` modtager referencer + injicerer systemprompt-regel: *"Gold Standard cards are quality references, not content templates…"* Returnerer `references_used`.
+- Ny `detectLanguageRepetition()` — server-fn der scanner alle godkendte kort for gentagne intro/CTA-mønstre (n-grams på 3–5 ord) og returnerer top-liste + tælling. Bruges i review og som badge "bruges allerede på N kort".
+- Ny `markAsGoldStandard({ id, reason, tags })` og `unmarkGoldStandard({ id })`.
+- Skærpet systemprompt for review: hårdere scoring (2/3 er ok), score-definition indbygget, "reason to exist"-krav, anti-AI-tone regler, undgå falsk præcision, standard 3–4 trin, én kerneidé, responsivt "Se efter", kort "Pause hvis". Læg regelsættet i én konstant `EDITORIAL_RUBRIC` og genbrug den i alle prompter.
 
-Nye server-funktioner (bevarer eksisterende):
-- `reviewCard` — kører kritik + kvalitetsscore på 10 dimensioner (1-5) + editorial_verdict + deserves_spot + rationale + overlap-forklaring. Returnerer struktureret review.
-- `improveCard` — tager kort + review, forbedrer kun svage dimensioner (score ≤3), returnerer nyt kort + `changes[]` (kort ændringsliste). Opretter ny card_version.
-- `varyCard` — samme idé, tydeligt anderledes udførelse.
-- `makeMoreEveryday` / `makeMorePresent` / `makeMoreOriginal` — targeted transforms.
-- `regenerateIllustrationPrompt` udvides med toner (`simpler`|`playful`|`poetic`|`concrete`).
-- `reviewIllustration` — vurderer prompt/motiv mod aktiviteten.
-- `analyzeBatchOverlap` — grupperer kandidater med høj mekanik+tekst similarity.
-- `submitEditorialFeedback` — gemmer i `editorial_feedback`, bruges som kontekst i næste `generateSmartCard` (rejection reasons injiceres i prompten).
-- `finalApprovalCheck` — deterministisk checkliste (fit, safety-tilstede, ikke-overlap, illustration-status, længde, signaler, præstationssprog-scan).
+## 3. UI-ændringer
 
-## 3. Real print-fit måling
+Kortbibliotek (`/bibliotek`):
+- Ny fane: **Gold Standard** — kun `is_gold_standard = true`. Kolonner: titel, alder, parent category, primary mechanics, quality score, reason.
+- Diskret ★ på kort-tiles der er GS (lille sand-farvet accent, ingen medaljer).
+- Advarselsbanner hvis >15 GS eller skæv fordeling (fx >60% samme mekanik/energy).
 
-- Ny util `src/lib/print-fit.tsx`: renderer `CardFront` skjult (offscreen div med korrekte mm→px), måler `scrollHeight` vs container-height, returnerer procent.
-- Minimum font-size respekteres — ingen auto-shrink under threshold.
-- Bruges i review-panel og gemmes som `print_fit_percentage`.
+Kortside (`kort.$id.tsx`):
+- "Markér som Gold Standard" (kun synlig når `status=approved`) → dialog:
+  - Bekræftelse ("kvalitetsreference, ikke skabelon")
+  - Multi-select tags (Exceptionelt enkelt · Meget brugbart · Stærkt samspil · God tekst · Smukt kort · Høj genbrugsværdi · God hverdagsintegration · Andet)
+  - Fri tekst `gold_standard_reason`
+  - Viser GS eligibility-check (safety=5, ingen blocking, baby_agency≥4, parent_learning≥4, reuse≥4, memorability≥4, print_fit=pass, strong reason_to_exist, low overlap) — advarer men blokerer ikke
+- "Fjern Gold Standard" (bevarer approved-status).
+- Vis "AI vurdering" og "Redaktørens vurdering" i to adskilte kort.
 
-## 4. Review-flow UI (`/smart` + `/generer`)
+Smart-generator (`/smart`) — udvid eksisterende redaktørpanel:
+- Nye score-rows (baby_agency, reuse_value, transfer_value, memorability, parent_learning_value, title_quality, simplicity_score).
+- Blocking issues-liste (rød pille pr. issue) — blokerer auto-GS.
+- Reason to Exist (én sætning) + varsling hvis svag/tom.
+- Activity-in-one-sentence + 5-second test badge.
+- Match quality vs GS (ja/næsten/nej + forklaring).
+- "Kvalitetsreferencer brugt" (admin-info): liste med links til de 2–4 GS-kort AI brugte.
+- Sprog-gentagelses-badge på formuleringer der bruges på ≥N kort + "Omskriv mere originalt"-handling.
+- Score-legende (5=Exceptionelt … 1=Bør ikke bruges) diskret nederst i panelet.
 
-Omlæg layoutet efter generering:
-- Formular kollapser til top-strip (redigerbar via "Justér input").
-- Venstre/midte: stort kort-preview, forside+bagside side-by-side på desktop, toggle på mobil.
-- Højre: **Redaktionelt review-panel** med:
-  - Editorial verdict (én overskrift + kort dom)
-  - "Fortjener en plads?" badge (ja/måske/nej)
-  - 10 kvalitetsdimensioner som ★-rows
-  - Print-fit måler (%)
-  - Overlap-liste med similarity + forklaring
-  - "Hvorfor dette kort?" (rationale, admin-only visuelt afdæmpet)
-  - Editor notes textarea
-- Handlingsbjælke: **Primær: "Gem som kandidat"**. Sekundær: Forbedr · Ny variation · Helt ny idé. Menu (•••): Forkort · Mere hverdagsnær · Mere nærværende · Mere original · Redigér · Afvis.
+Projektbalance (`/balance`):
+- Nyt afsnit **Gold Standard coverage** — tælling pr. alder og parent category. Ren info, ingen mål.
 
-Nye dialoger:
-- **Afvisningsdialog** — multi-select årsager + kommentar, gemmer feedback.
-- **Sammenlign side om side** — modal med nyt kort vs valgt eksisterende kort; fremhæver overlap-felter.
-- **Illustrations-review-panel** — under bagside-toggle: prompt-editor + tone-knapper + kvalitetsscore.
-- **Final approval checklist** — modal ved "Godkend endeligt"; viser ✓/⚠ pr. punkt, kræver bekræftelse hvis noget mangler.
+## 4. Design
 
-## 5. Version-diff
-
-Kortside (`kort.$id.tsx`) får en Versioner-fane:
-- Liste over `card_versions` med `change_note`
-- Sammenlign to versioner (simpel diff af print-felter)
-
-## 6. Kandidat-bibliotek
-
-- `/bibliotek` får faner: Alle · Udkast · **Kandidater** · Godkendte · Afviste · Arkiverede
-- Kandidat-fane har knap **"Gennemgå kandidater"** → ny rute `/bibliotek/review`:
-  - Ét kort ad gangen, "Kandidat X af Y"
-  - Handlinger: Godkend · Tilbage til udkast · Redigér · Afvis · Næste
-- **Batch overlap-panel** øverst på kandidat-fanen: kalder `analyzeBatchOverlap`, viser grupper med anbefalet vinder.
-
-## 7. Dashboard: Seriestyrke
-
-Erstat simpel tæller med panel:
-- Total + fordeling (godkendte/kandidater/udkast/afviste)
-- Gennemsnitlig kvalitet
-- Antal med overlap
-- Antal der kræver review
-- Fordelinger: materialefri %, lav-energi %, hverdag %
-- Tekst: "Målsætning: 100–120 exceptionelle kort · Kvalitet prioriteres over antal"
-- Pr. kategori: hvis dækning stærk → "Denne kategori er allerede stærkt dækket…"
-
-## 8. Editor-udvidelser (`kort.$id.tsx`)
-
-- `editor_notes` textarea
-- `deserves_spot` badge (redigerbar)
-- Print-fit måler live
-- Illustration prompt-editor med tone-knapper
-- Status-dropdown udvidet med candidate/archived
+- Gold Standard = lille ★ i `--color-sand` accent + tynd linje. Ingen guld, ingen badges der føles gamified.
+- Score-tal med diskret farve når svag (≤2 rød-tone, 3 muted, 4–5 neutral).
 
 ## Ikke i denne iteration
-- Faktisk AI-billedgenerering (kun prompt-flow)
-- ML-læring fra feedback (kun kontekst-injektion i næste generation)
-- Diff på tværs af felttyper ud over simpel tekst-diff
+- Ingen nye dashboards ud over GS-coverage-sektionen.
+- Ingen automatisk GS-udpegning — kun forslag/eligibility, mennesket har sidste ord.
+- Ingen ML-læring; kun prompt-injektion.
 
 ## Implementeringsrækkefølge
-1. Migration (status-enum, nye felter, feedback-tabel)
-2. AI-funktioner (`reviewCard`, `improveCard`, transforms, `finalApprovalCheck`, `analyzeBatchOverlap`, `submitEditorialFeedback`)
-3. Print-fit måling util
-4. Review-panel + nyt layout i `/smart` (og `/generer`)
-5. Afvisningsdialog + feedback-injektion i næste generation
-6. Side-by-side sammenligning + illustrations-review
-7. Final approval checklist
-8. Kandidat-bibliotek + review-mode + batch overlap
-9. Dashboard seriestyrke
-10. Editor-noter + versioner-fane + version-diff
+1. Migration (felter + trigger)
+2. `EDITORIAL_RUBRIC` + skærpet `reviewCard` med nye dimensioner
+3. `pickGoldStandardReferences` + injektion i `generateSmartCard`/`improveCard` + `references_used`
+4. `markAsGoldStandard` / `unmarkGoldStandard` + eligibility-check
+5. `detectLanguageRepetition`
+6. UI: kort-side (GS-dialog, AI/redaktør adskilt)
+7. UI: bibliotek (GS-fane, ★, advarsler)
+8. UI: smart-panel (nye scores, blocking, reason-to-exist, referencer, sproggentagelser)
+9. Balance: GS coverage-sektion
 
 Godkend, så starter jeg med migrationen.
