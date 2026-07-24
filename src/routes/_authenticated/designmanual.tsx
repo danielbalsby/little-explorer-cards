@@ -60,12 +60,27 @@ function ManualPage() {
       </header>
 
       <section className="rounded-2xl border bg-[oklch(0.97_0.01_85)] p-6">
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">Produktprincip</div>
-        <h2 className="font-serif text-2xl mt-1">Forsiden bærer aktiviteten. Bagsiden bærer serien.</h2>
-        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          Hver forside er unik og fortæller ét roligt øjeblik. Bagsiden er derimod global og fælles for
-          alle kort — det er dér serien viser sit brand, sin tone og sin identitet. Bagsiden redigeres kun
-          ét sted (Design-lab / Indstillinger) og gælder automatisk for hele samlingen.
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">Produktets visuelle hierarki · V6</div>
+        <h2 className="font-serif text-2xl mt-1">Brand → Kategori → Kort</h2>
+        <ol className="mt-4 space-y-3 text-sm text-foreground/85 max-w-2xl">
+          <li>
+            <b>Level 1 · Små Stunder brandmark.</b> Samme mark på hele produktet — kort, æske, favicon.
+            Bygget direkte på DNA'et fra Gold-illustrationen "Ansigt til ansigt".
+          </li>
+          <li>
+            <b>Level 2 · 10 kategoriillustrationer.</b> Én fast illustration pr. visual_category.
+            Viser hvilken type stund kortet tilhører. Genbruges bevidst på tværs af kort — som kapitler
+            i en bog, ikke som 100 individuelle bogforsider.
+          </li>
+          <li>
+            <b>Level 3 · Kortets titel og aktivitet.</b> Fortæller præcis hvad familien kan gøre.
+            Det unikke ligger her — ikke i illustrationen.
+          </li>
+        </ol>
+        <p className="text-xs text-muted-foreground mt-4 max-w-2xl">
+          Situation (Puslebord, Bilen, Puttetid …) og visual_category blandes ikke sammen: situation siger
+          <i> hvor/hvornår</i> familien er, kategori siger <i>hvilken type oplevelse</i> kortet tilbyder.
+          Et kort har præcis én primær visual_category, men må have mange udviklingsområder og mechanics internt.
         </p>
       </section>
 
