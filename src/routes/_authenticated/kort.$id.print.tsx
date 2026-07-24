@@ -72,15 +72,12 @@ function PrintPreview() {
               <CardFront print={print} guides={guides} />
             )}
             {(side === "back" || side === "both") && (
-              <CardBack
-                title={print.title}
-                age_group={age}
-                card_number={card.card_number}
-                illustration_url={card.illustration_url}
-                illustration_status={(card.illustration_status as IllustrationStatus) ?? "not_generated"}
-                seed={card.card_number}
-                guides={guides}
-              />
+              <div className="flex flex-col items-center gap-2">
+                <CardBack />
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground print:hidden">
+                  Global bagside · fælles for hele serien
+                </span>
+              </div>
             )}
           </div>
         ) : (
