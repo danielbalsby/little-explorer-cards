@@ -59,17 +59,7 @@ export function PrintSheet({
           side === "front" ? (
             <CardFront key={i} print={c.print} guides={guides} scale={scale} />
           ) : (
-            <CardBack
-              key={i}
-              title={c.print.title}
-              age_group={(c.print.age_group as AgeGroup) ?? c.age_group ?? "2-4m"}
-              card_number={c.card_number}
-              illustration_url={c.illustration_url}
-              illustration_status={c.illustration_status}
-              seed={c.card_number ?? i}
-              guides={guides}
-              scale={scale}
-            />
+            <CardBack key={i} scale={scale} />
           )
         )}
       </div>
