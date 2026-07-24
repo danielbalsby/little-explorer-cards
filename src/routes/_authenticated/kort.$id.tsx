@@ -15,7 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Copy, Lock, Unlock, Trash2, Check, X, Save } from "lucide-react";
+import { Copy, Lock, Unlock, Trash2, Check, X, Save, Printer } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/kort/$id")({
   head: () => ({ meta: [{ title: "Redigér kort — Babykort" }] }),
