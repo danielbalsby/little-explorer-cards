@@ -710,7 +710,10 @@ export const reviewCard = createServerFn({ method: "POST" })
       .select("id, card_number, title, age_group, parent_category, activity_mechanics, print_content")
       .eq("is_gold_standard", true)
       .limit(30);
-    const gsList = gsAll ?? [];
+    const gsList: GoldRef[] = (gsAll ?? []).map((r) => ({
+      ...r,
+      activity_mechanics: Array.isArray(r.activity_mechanics) ? (r.activity_mechanics as string[]) : [],
+    }));
     const picked = pickReferences(gsList, {
       age_group: data.print.age_group,
       parent_category: data.parent_category,
