@@ -17,7 +17,7 @@ import {
   Brandmark,
   type BrandmarkVariant,
 } from "@/components/card-variants/brandmarks";
-import type { SceneKey } from "@/components/card-variants/scenes";
+import { SCENE_RENDERERS, type SceneKey } from "@/components/card-variants/scenes";
 import type { PrintContent } from "@/lib/card-schema";
 import { REFERENCE_CARD } from "@/lib/card-variants";
 import { Button } from "@/components/ui/button";
