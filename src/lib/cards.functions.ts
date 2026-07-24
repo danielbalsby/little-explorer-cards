@@ -613,6 +613,169 @@ export const rejectCard = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("cards")
       .update({ status: "rejected", rejection_reason: data.reason })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+
+// ================================================================
+// V4: Redaktionelt review-flow
+// ================================================================
+
+import { ReviewScoreSchema, EditorialReviewSchema } from "./card-schema";
+
+// ---- Fuld redaktionel review (10 dimensioner + dom) ----
+const ReviewInput = z.object({
+  print: PrintContentSchema,
+  parent_category: z.string().optional(),
+  activity_mechanics: z.array(z.string()).default([]),
+});
+
+const REVIEW_SYSTEM = `Du er en meget streng, erfaren redaktør på et premium babyaktivitetskort-produkt.
+Dit job er at afgøre om DETTE kort fortjener en plads i den endelige serie (målet er 120 kort — hvert kort skal være unikt værdifuldt).
+
+Bedøm på 10 dimensioner, hver på skala 1-5:
+1. presence: nærvær over præstation
+2. clarity: kan en træt forælder følge det uden at læse to gange
+3. warmth: varm, ikke-dømmende, ligeværdig tone
+4. originality: ikke bare "standardøvelse"
+5. safety: er alt væsentligt sikret uden overflødige fraser
+6. age_fit: passer aktiviteten aldersgruppen præcist
+7. no_performance_pressure: intet "barnet skal…", ingen milepæls-jagt
+8. actionable: konkrete handlinger, ikke abstrakte råd
+9. print_fit: passer teksten på et A6 kort (ikke for meget)
+10. parent_language: forældresprog, ikke fagsprog
+
+overall = gennemsnit (afrundet til én decimal).
+
+Derefter DOM:
+- deserves_spot: "ja" (klart værdi), "måske" (kan reddes), "nej" (drop det)
+- editorial_verdict: 1-2 sætninger — din konkrete dom
+- suggested_improvements: 2-4 konkrete tiltag hvis "måske"; tomme hvis "ja"; hvorfor drop hvis "nej"
+- strengths: 1-3 stikord med hvad der virker
+- weaknesses: 1-3 stikord med hvad der ikke virker
+- notes: overordnet redaktionel note
+
+Vær ærlig. Det er OK at afvise. Det er bedre at have 80 stærke kort end 120 middelmådige.`;
+
+export const reviewCard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => ReviewInput.parse(data))
+  .handler(async ({ data }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    try {
+      const { output } = await generateText({
+        model: gateway("openai/gpt-5.5"),
+        system: REVIEW_SYSTEM,
+        prompt: `Bedøm dette kort.
+
+Forældrekategori: ${data.parent_category ?? "(ikke sat)"}
+Mekanik: ${data.activity_mechanics.join(", ") || "(ingen)"}
+Ordantal på print: ${countPrintWords(data.print)}
+
+${JSON.stringify(data.print, null, 2)}`,
+        output: Output.object({ schema: EditorialReviewSchema }),
+      });
+      return { ok: true as const, review: output };
+    } catch (error) {
+      if (NoObjectGeneratedError.isInstance(error)) {
+        return { ok: false as const, error: "Kunne ikke tolke review-svar." };
+      }
+      const msg = error instanceof Error ? error.message : "Ukendt fejl";
+      console.error("[reviewCard]", msg);
+      return { ok: false as const, error: msg };
+    }
   });
+
+// ---- Målrettet forbedring baseret på review-feedback ----
+const ImproveInput = z.object({
+  print: PrintContentSchema,
+  focus: z.string(), // fx "fjern præstationspres i steps", "gør intro varmere"
+  weaknesses: z.array(z.string()).default([]),
+});
+
+export const improveCard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => ImproveInput.parse(data))
+  .handler(async ({ data }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    try {
+      const { output } = await generateText({
+        model: gateway("openai/gpt-5.5"),
+        system: `Du forbedrer et babyaktivitetskort baseret på konkret redaktionel feedback.
+Bevar aktivitetens kerne, samme JSON-struktur, samme sprog (dansk).
+Fjern præstationspres, generiske fraser, fagsprog. Hold 120–170 ord.
+Returnér SAMME JSON-struktur — ikke forklaringer.`,
+        prompt: `Forbedr dette kort.
+
+FOKUS: ${data.focus}
+Svagheder at rette: ${data.weaknesses.join(" · ") || "(ingen specifikke)"}
+
+Nuværende kort:
+${JSON.stringify(data.print, null, 2)}`,
+        output: Output.object({ schema: PrintContentSchema }),
+      });
+      return { ok: true as const, print: output };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Ukendt fejl";
+      console.error("[improveCard]", msg);
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---- Log redaktionel feedback (til lærings-loop) ----
+const FeedbackInput = z.object({
+  card_id: z.string().optional(),
+  feedback_type: z.enum(["reject", "improve", "approve", "note"]),
+  feedback_reasons: z.array(z.string()).default([]),
+  feedback_note: z.string().optional(),
+  action_taken: z.string().optional(),
+});
+
+export const submitEditorialFeedback = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => FeedbackInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("editorial_feedback").insert({
+      card_id: data.card_id ?? null,
+      feedback_type: data.feedback_type,
+      feedback_reasons: data.feedback_reasons,
+      feedback_note: data.feedback_note ?? null,
+      action_taken: data.action_taken ?? null,
+      created_by: context.userId,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+// ---- Seriestyrke: overordnet kvalitetsprofil ----
+export const analyzeSeriesStrength = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: cards } = await context.supabase
+      .from("cards")
+      .select("status, deserves_spot, quality_score, print_fit_percentage, age_group, parent_category");
+    const list = cards ?? [];
+    const byStatus: Record<string, number> = {};
+    const byDeserves: Record<string, number> = { ja: 0, måske: 0, nej: 0, "?": 0 };
+    let scoreSum = 0, scoreN = 0;
+    let fitSum = 0, fitN = 0;
+    for (const c of list) {
+      byStatus[c.status] = (byStatus[c.status] ?? 0) + 1;
+      const d = (c.deserves_spot as string) || "?";
+      byDeserves[d] = (byDeserves[d] ?? 0) + 1;
+      const q = c.quality_score as { overall?: number } | null;
+      if (q && typeof q.overall === "number") { scoreSum += q.overall; scoreN++; }
+      if (typeof c.print_fit_percentage === "number") { fitSum += c.print_fit_percentage; fitN++; }
+    }
+    return {
+      total: list.length,
+      byStatus,
+      byDeserves,
+      avgQuality: scoreN > 0 ? Math.round((scoreSum / scoreN) * 10) / 10 : null,
+      avgPrintFit: fitN > 0 ? Math.round(fitSum / fitN) : null,
+    };
+  });
+
