@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+const PREVIEW_AUTH_ORIGIN = "https://id-preview--c316b1d2-d9c8-4bc3-af2b-34a9c8dbd171.lovable.app";
+
+function getAuthRedirectUrl() {
+  const { hostname, origin } = window.location;
+  const authOrigin = hostname === "localhost" || hostname === "127.0.0.1" ? PREVIEW_AUTH_ORIGIN : origin;
+  return `${authOrigin}/auth`;
+}
+
 export const Route = createFileRoute("/auth")({
   ssr: false,
   beforeLoad: async () => {
@@ -37,11 +45,15 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: getAuthRedirectUrl() },
         });
         if (error) throw error;
+        if (!data.session) {
+          toast.success("Konto oprettet. Tjek din mail for at bekræfte brugeren.");
+          return;
+        }
         toast.success("Konto oprettet. Du er logget ind.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
