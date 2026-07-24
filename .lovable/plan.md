@@ -1,163 +1,113 @@
 
-# Printbare premium-aktivitetskort
+# Version 3 — Intelligent kortgenerator
 
-Videreudvikling af den nuværende app. Eksisterende kort og funktionalitet bevares. Alle ændringer sker gennem migrations og additive felter — ingen data slettes.
+Bevar alt eksisterende (data, printformat, forside/bagside, design). Kun additive ændringer.
 
-## 1. Kortformat som central designindstilling
+## 1. Databaseudvidelser (én migration, alle felter nullable)
 
-Nyt modul `src/lib/card-format.ts` med ét fast format alle preview/print bruger:
+Tilføj til `cards`:
+- `parent_category text` — forældrevenlig kategori (8 værdier)
+- `activity_mechanics jsonb` — array af mekanik-slugs (visual_tracking, turn_taking, …)
+- `caregiver_energy text` — very_low | low | normal | active
+- `setup_level text` — none | minimal | some
+- `good_when jsonb` — array af situationer
+- `card_type text default 'activity'` — activity | principle
+- `quality_score jsonb` — {clarity, usefulness, interaction, simplicity, age_relevance, originality, safety, no_performance_pressure, print_fit}
+- `fact_statement text`, `fact_source text`, `fact_source_url text`, `fact_verified bool default false`, `fact_verified_at timestamptz`, `evidence_level text`
+- `rejection_reason text`, `generation_rationale text` (intern "hvorfor dette kort")
 
-```text
-trim:      105 × 148 mm (A6)
-bleed:     3 mm
-safe area: 5 mm inde fra trim
-radius:    ~4 mm (kun digital preview)
-dpi mål:   300
-```
+Ny tabel `activity_safety_rules` (id, category, trigger, safety_instruction, severity, source, source_url, active, timestamps) — RLS: read auth, write admin. Seedes med ~10 basisregler (sleep, water, tummy_time, small_objects, sunlight, elevated_surface, carrying, bath, food, outdoor).
 
-Ingen komponenter hardcoder mm/px — de læser fra dette modul. Ændres formatet globalt her, følger alle previews og printark med.
+Ingen backfill for eksisterende kort — felterne står tomme til de redigeres.
 
-## 2. Datamodel — additive ændringer
+## 2. Skema + konstanter (`src/lib/`)
 
-Migration tilføjer kolonner til `cards` (ingen drop, ingen overskrivning):
+- `parent-categories.ts` — 8 kategorier med ikoner/farvetokens
+- `activity-mechanics.ts` — enum-liste + labels
+- `caregiver-energy.ts`, `setup-level.ts` — enums + labels
+- `card-schema.ts` — udvid `GeneratedCardSchema` med de nye felter (mechanics, parent_category, caregiver_energy, setup_level, good_when, rationale, quality_score, fact_*), samt strengere `PrintContentSchema.did_you_know` (kun hvis verificeret)
 
-- `print_content jsonb` — den korte version til kortet (samme felter som `extended_content`, men tekstbudget-valideret)
-- `extended_content jsonb` — fuld faglig version (mapper fra eksisterende felter ved første load)
-- `illustration_prompt text`
-- `illustration_status text` — `not_generated` | `draft` | `approved` (default `not_generated`)
-- `illustration_url text` (nullable, forberedt til senere AI-billedgenerering)
-- `needs_shortening boolean` — sættes true på eksisterende kort hvor forsiden overskrider 190 ord
+## 3. AI pipeline (`src/lib/cards.functions.ts`)
 
-Eksisterende kort forbliver læsbare: hvis `print_content` er null, bruger UI en on-the-fly mapping fra de gamle felter og markerer kortet med "Skal forkortes til print".
+Refaktorer `generateCard` til en pipeline (samme server-fn, flere sekventielle AI-kald):
 
-## 3. Ny kortstruktur (forside)
+1. **Balance-analyse** — læser eksisterende kort, beregner mangler pr. aldersgruppe / parent_category / mechanic
+2. **Activity Creator** — genererer aktivitetskoncept + mechanics + rationale (bruger balance-input)
+3. **Critical Editor** — samme model kritiserer: præstationspres, realisme, unødvendig opsætning; kan returnere `reject: true` med begrundelse
+4. **Similarity Check** — Jaccard PLUS mechanics-overlap mod eksisterende kort; returnerer top-3 lignende + overlap-score
+5. **Safety Check** — matcher aktivitetens triggers mod `activity_safety_rules`, indsætter påkrævet sikkerhedstekst
+6. **Card Editor** — komprimerer til `PrintContent` (≤190 ord)
+7. **Print Fit** — `validateFit` (findes)
+8. **Fact Gate** — `did_you_know` fjernes fra print hvis `fact_verified=false`
+9. **Quality Score** — AI vurderer 1-5 på hver subkategori
 
-`print_content` shape:
+Returnerer `{ generated, similar[], rationale, quality_score, rejected?, rejection_reason? }`.
 
-```ts
-{
-  title: string,              // max 4 ord
-  age_group: AgeGroup,
-  intro: string,              // 20–30 ord
-  development_areas: string[],// max 3, vises som chips m. ikoner
-  materials: string,          // én linje, fx "Ingen" eller "Et tæppe"
-  steps: string[],            // 3–5 korte sætninger
-  variations: string[],       // max 2
-  look_for: string,           // 1 sætning ("Se efter")
-  pause_if: string,           // 1 linje ("Pause hvis")
-  did_you_know?: string,      // valgfri, 15–20 ord, skjules hvis pladsmangel
-  safety?: string             // kun hvis aktivitetsspecifik
-}
-```
+Ny systemprompt bygget på §1, §2, §11, §17, §28, §29 fra briefet — inkl. VIS→VENT→SE→SVAR, forbudte fraser, foretrukne fraser, "en kort stund er nok".
 
-Tekstbudget: 120–170 ord ideelt, hårdt loft 190. Utility `countWords(printContent)` + indikator ("148 / 190 ord", grøn/gul/rød).
+Ny server-fn `shortenCardText` findes — bevares.
+Ny server-fn `analyzeProjectBalance()` — returnerer mangler + næste anbefaling.
 
-## 4. AI-generering opdateres
+## 4. Smart Generator UI
 
-`generateCard` server-fn får ny prompt:
-- Genererer direkte i `print_content`-shape
-- Instrueres eksplicit: "tekst til et fysisk 105×148 mm kort, ikke en artikel"
-- Prioriterer klarhed, handling, varme, sikkerhed, korthed
-- Fjerner generiske sikkerhedsfraser
-- Genererer også `extended_content` (længere version) og `illustration_prompt` i samme kald via strukturert output
+Ny rute `src/routes/_authenticated/smart.tsx` (default fra sidebar):
+- Alder
+- "Hvad passer lige nu?" (chips, multi): rolig, aktiv, nærhed, udenfor, på gulvet, på puslebordet, ingen materialer, overrask mig
+- Forældreenergi (4 valg)
+- Ekstra ønske (fritekst)
+- Viser før generering: "Smart forslag: projektet mangler …" med "Brug forslag"-knap
+- Knap "Find en god aktivitet"
 
-Ny server-fn `shortenCardText({ card })` — kaldes af "Forkort med AI"-knappen når word count > 190. Bevarer aktivitetens kerne.
+Efter generering: kort-preview + panel med
+- **Hvorfor dette kort?** (rationale)
+- **Kvalitetsscore** (visualiseret)
+- **Muligt overlap** med links til lignende kort
+- Knapper: Godkend · Redigér · Ny variation · Helt ny idé · Afvis (med årsag)
 
-## 5. Forside-layout (ny komponent)
+Eksisterende `/generer` beholdes som "Avanceret generering".
 
-`src/components/card-front.tsx` — én komponent, faste proportioner fra `card-format.ts`. Layout:
+## 5. Editor + kort (`kort.$id.tsx`, `card-front.tsx`)
 
-```text
-┌──────────────────────────────┐  ← bleed
-│ ┌──────────────────────────┐ │  ← trim
-│ │  Titel                   │ │  ← safe area
-│ │  0–2 måneder · ●●●       │ │
-│ │                          │ │
-│ │  Kort intro (20–30 ord)  │ │
-│ │                          │ │
-│ │  Materialer  Ingen       │ │
-│ │                          │ │
-│ │  Sådan gør I             │ │
-│ │  1. …                    │ │
-│ │  2. …                    │ │
-│ │                          │ │
-│ │  Prøv også · Se efter    │ │
-│ │  Pause hvis · Vidste du? │ │
-│ └──────────────────────────┘ │
-└──────────────────────────────┘
-```
+- Editor: nye felter (parent_category, mechanics, caregiver_energy, setup_level, good_when, fact_verified toggle + source-felter, quality_score visning)
+- Kortforside: 
+  - "Se efter" får lidt større vægt (typografi, ikke boks)
+  - Materialer-sektion skjules helt hvis tom
+  - "Vidste du?" vises kun hvis `fact_verified`
+  - Sikkerhed vises kun hvis aktivitetsspecifik
+- Kortbagside: viser parent_category diskret
 
-Ingen store sektionstitler, ingen vandrette streger. Struktur via typografi, spacing, små ikoner, diskret aldersfarve som accent (ikke fyldfarve).
+## 6. Bibliotek + Balance + Dashboard
 
-## 6. Bagside
+- **Bibliotek**: nyt filter på parent_category, caregiver_energy, setup_level; badge "Muligt overlap" hvis mechanics matcher
+- **Balance**: nye paneler — parent_category, mechanics-heatmap, caregiver_energy, setup_level, hverdag vs. arrangeret, materialefrit %
+- **Dashboard**: "Næste anbefalede kort" med prefilled-link til Smart Generator
 
-`src/components/card-back.tsx`:
-- Illustration som dominant element (eller elegant SVG-placeholder når `illustration_status = not_generated`)
-- Lille titel nederst, kortnummer, diskret brandmark
-- Samme grundlayout på alle kort; kun illustrationen varierer
-- Aldersfarve som subtil baggrundstone
+## 7. Designmanual
 
-Placeholderen er en håndtegnet SVG med organiske former i palettens farver — demonstrerer intenderet stil.
+Seed nye afsnit:
+- Produktets kerne (§1)
+- Samspilsprincipper: VIS→VENT→SE→SVAR (§2)
+- Skriveregler: forbudte/foretrukne fraser (§29)
+- No filler policy (§7)
 
-## 7. Editor redesignes
+## 8. Principle cards
 
-`src/routes/_authenticated/kort.$id.tsx` får tre tabs:
+Kun datamodel (`card_type='principle'`) + minimal renderer-variant (lidt afvigende layout, samme serie). Ingen auto-generering. Manuel oprettelse via editor med `card_type=principle`.
 
-- **Indhold** — redigér `print_content` felter, live word count, "Forkort med AI"-knap, toggle mellem print/udvidet version
-- **Design** — aldersfarve, illustration_prompt, illustration_status, placeholder preview
-- **Print** — forside/bagside/begge-toggle, bleed/safe area toggle, print preview
+## Implementeringsrækkefølge
 
-Desktop viser forside og bagside side om side.
+1. Migration (nye kolonner + safety_rules-tabel + seed rules + designmanual-seed)
+2. Konstanter/skemaer i `src/lib/`
+3. AI-pipeline refaktor i `cards.functions.ts` (+ `analyzeProjectBalance`)
+4. Smart Generator UI + resultatpanel med reject/regenerate
+5. Editor-udvidelser + kortforside/bagside-justeringer
+6. Bibliotek/Balance/Dashboard-opdateringer
+7. Principle card-support
 
-## 8. Print-preview & printark
+## Ikke i denne iteration
 
-Ny route `src/routes/_authenticated/kort.$id.print.tsx`:
-- Sider vises i reelle proportioner (mm → px via CSS `mm`-enheder)
-- Toggle: hjælpelinjer (trim/bleed/safe area) on/off, default off
-- Printark-tab: vælg A4/A3, systemet placerer kort med bleed og crop marks
-- Knap "Eksportér til print-PDF" — vises som "beta"; første iteration bruger `window.print()` med `@page` CSS til korrekt størrelse. Rigtig PDF-eksport forberedes men markeres kommer-snart hvis ikke færdig.
+- Auto-generering af principle cards (kun datamodel)
+- Fuld fact-verifikations-workflow (kun felter + gate på print)
+- ML-baseret rejection-læring (kun logging)
 
-## 9. Fit-to-card validering
-
-Utility `validateFit(printContent)`:
-- Beregner estimeret højde ved minimum brødtekst font size (bestemt i card-format.ts, fx 9pt)
-- Returnerer `{ fits: boolean, wordCount, warnings[] }`
-- Ved overskridelse: UI viser advarsel + "Forkort med AI"-knap
-- Systemet skalerer ikke tekst nedad under minimum — det beder om forkortelse
-
-## 10. Migrations-strategi for eksisterende kort
-
-- Migration tilføjer kun kolonner, sætter ingen `print_content`
-- Ved læsning: hvis `print_content` er null, mapper UI'et gamle felter → provisorisk print-view + sætter `needs_shortening = true` (ord > 190)
-- Bibliotek viser badge "Skal forkortes" på berørte kort
-- Bruger klikker → "Forkort med AI" → godkender → gemmes i `print_content`
-- Intet slettes eller overskrives automatisk
-
-## 11. Filer der oprettes/ændres
-
-Nye:
-- `src/lib/card-format.ts` — dimensioner, safe area, min font size
-- `src/lib/card-text.ts` — word count, validateFit, mapping fra legacy
-- `src/components/card-front.tsx`, `card-back.tsx`, `card-spread.tsx` (side-om-side)
-- `src/components/print-sheet.tsx` — A4/A3 imposition
-- `src/components/illustration-placeholder.tsx`
-- `src/routes/_authenticated/kort.$id.print.tsx`
-
-Ændres:
-- `src/lib/card-schema.ts` — nye Zod-skemaer for print/extended
-- `src/lib/cards.functions.ts` — ny prompt, `shortenCardText`, `regenerateIllustrationPrompt`
-- `src/routes/_authenticated/kort.$id.tsx` — tabs, word count, forkort-knap
-- `src/routes/_authenticated/generer.tsx` — bruger ny prompt, viser word count i preview
-- `src/routes/_authenticated/bibliotek.tsx` — badge "Skal forkortes", link til print-view
-- `src/components/card-preview.tsx` — erstattes af `card-front.tsx` (eller wrapper)
-- `src/styles.css` — utilities for mm-enheder, print `@page` regler
-
-Database: én ny migration med de nævnte kolonner.
-
-## 12. Implementeringsrækkefølge
-
-Følger den prioriterede rækkefølge fra briefet: format → datamodel → forside-layout → tekstbudget → AI-prompt → fit-validering → bagside → illustration_prompt → print preview → editor-tabs → printark → PDF-forberedelse. Ét kort perfektioneres først; derefter rulles ud på biblioteket.
-
----
-
-Godkend planen, så starter jeg med migration + card-format modul + nyt forside-layout på ét kort.
+Godkend, så starter jeg med migration + skemaer.
