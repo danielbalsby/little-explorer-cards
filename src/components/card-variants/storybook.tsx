@@ -36,7 +36,10 @@ export function StorybookFront({ print, scale = 1, scene = "face" }: Props) {
             overflow: "hidden",
           }}
         >
-          <FaceToFaceScene scale={scale} />
+          {(() => {
+            const Scene = SCENE_RENDERERS[scene] ?? SCENE_RENDERERS.face;
+            return <Scene scale={scale} />;
+          })()}
         </div>
 
         {/* Diskret vandret linje */}
