@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StorybookFront } from "@/components/card-variants/storybook";
 import {
   BACK_V3_RENDERERS,
@@ -123,7 +123,49 @@ const SAMPLE_CARDS: SampleCard[] = [
   { category: "leg_udforskning", title: "Skjul og find", age: "9-12m", areas: ["Leg", "Kognition"],
     intro: "Et lille objekt der forsvinder og kommer igen.",
     steps: ["Skjul en klods under en klud.", "Vent på babys reaktion.", "Vis den igen."] },
+
+  /* Runde 2: sværere/kant-titler pr. kategori — tester at scenen holder */
+  { category: "naerhed_samspil", title: "Rolig nærhed", age: "0-2m", areas: ["Kontakt", "Regulering"],
+    intro: "Bare være tæt — uden program.", steps: ["Sæt jer tæt.", "Vær stille.", "Følg babys blik."] },
+  { category: "krop_bevaegelse", title: "Rul mig blidt", age: "6-9m", areas: ["Motorik", "Balance"],
+    intro: "Et blidt rul mellem to positioner.", steps: ["Læg baby på ryggen.", "Støt hoften.", "Rul roligt til siden."] },
+  { category: "haender_nysgerrighed", title: "Hånd i hånd", age: "2-4m", areas: ["Kontakt", "Motorik"],
+    intro: "Babys hånd møder din finger.", steps: ["Tilbyd din finger.", "Vent på grebet.", "Bliv i berøringen."] },
+  { category: "sanser_opdagelse", title: "Lysdans", age: "4-6m", areas: ["Sanser", "Syn"],
+    intro: "Blødt lys der bevæger sig langsomt.", steps: ["Skab blødt lys.", "Bevæg det roligt.", "Følg babys blik."] },
+  { category: "sprog_samtale", title: "Første ord", age: "9-12m", areas: ["Sprog"],
+    intro: "Ét ord — gentaget varmt.", steps: ["Vælg ét kendt ord.", "Sig det tydeligt.", "Vent på svar."] },
+  { category: "musik_rytme", title: "Klap og syng", age: "6-9m", areas: ["Rytme", "Motorik"],
+    intro: "En kort rytme sammen.", steps: ["Syng samme sang.", "Klap i takt.", "Stop og vent."] },
+  { category: "natur_udeliv", title: "Første regn", age: "6-9m", areas: ["Sanser", "Natur"],
+    intro: "Regnen på hånden — første gang.", steps: ["Gå ud sammen.", "Ræk hånden frem.", "Sæt ord på."] },
+  { category: "hverdagsstunder", title: "Bordet er dækket", age: "9-12m", areas: ["Rutiner", "Sprog"],
+    intro: "En rolig overgang til måltidet.", steps: ["Fortæl hvad du gør.", "Vent på babys blik.", "Sæt jer sammen."] },
+  { category: "ro_tryghed", title: "Puttetid", age: "4-6m", areas: ["Tryghed", "Søvn"],
+    intro: "Samme lille rutine hver aften.", steps: ["Dæmp lyset.", "Nyn samme melodi.", "Bliv til baby falder til ro."] },
+  { category: "leg_udforskning", title: "Klods på klods", age: "9-12m", areas: ["Leg", "Motorik"],
+    intro: "To klodser — og en pause imellem.", steps: ["Læg én klods frem.", "Vent på babys hånd.", "Læg den anden ved siden af."] },
 ];
+
+/* ============ Approval state (per-category lock) ============ */
+const APPROVAL_KEY = "design-lab-v6-category-approvals";
+function useCategoryApprovals() {
+  const [approved, setApproved] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(APPROVAL_KEY);
+      if (raw) setApproved(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+  const toggle = (id: string) => {
+    setApproved((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(APPROVAL_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  return { approved, toggle };
+}
 
 function printFrom(s: SampleCard): PrintContent {
   return {
@@ -141,6 +183,8 @@ function DesignLab() {
   const [selectedR1, setSelectedR1] = useState<R1Variant>("r1a_baseline");
   const [selectedBackV3] = useState(BACK_V3_VARIANTS[0]?.id ?? "quiet_story");
   const [sheetScale, setSheetScale] = useState(1);
+  const { approved, toggle } = useCategoryApprovals();
+  const approvedCount = VISUAL_CATEGORY_LIST.filter((c) => approved[c.id]).length;
 
   return (
     <div className="min-h-screen" style={{ background: "#EFE9DE" }}>
@@ -180,33 +224,50 @@ function DesignLab() {
             </div>
           </div>
 
-          {/* A1 — Illustration Sheet (uden tekst) */}
+          {/* A1 — Illustration Sheet (uden tekst) med per-kategori godkendelse */}
           <div className="mb-6">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
-              A1 · Illustration sheet · uden tekst
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                A1 · Illustration sheet · klik for at markere som godkendt
+              </div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Godkendt: <span className="tabular-nums text-[#342D27]">{approvedCount} / {VISUAL_CATEGORY_LIST.length}</span>
+              </div>
             </div>
             <div className="rounded-2xl p-8" style={{ background: PANEL_BG }}>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
                 {VISUAL_CATEGORY_LIST.map((cat) => {
                   const Scene = CATEGORY_SCENES[cat.id];
+                  const isOk = !!approved[cat.id];
                   return (
-                    <div key={cat.id} className="flex flex-col items-center gap-2">
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggle(cat.id)}
+                      className="flex flex-col items-center gap-2 text-left group"
+                    >
                       <div style={{
                         width: "100%", aspectRatio: "300 / 180",
                         background: "#F8F4EC", borderRadius: 12, overflow: "hidden",
                         boxShadow: "0 8px 20px -8px rgba(52,45,39,0.2)",
+                        outline: isOk ? "2px solid #342D27" : "2px solid transparent",
+                        outlineOffset: 2,
+                        transition: "outline-color 120ms",
                       }}>
                         <Scene />
                       </div>
-                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground text-center">
-                        {cat.label}
+                      <div className="text-[10px] uppercase tracking-widest text-center flex items-center gap-1 justify-center"
+                        style={{ color: isOk ? "#342D27" : undefined }}>
+                        {isOk && <Check className="h-3 w-3" />}
+                        <span className={isOk ? "" : "text-muted-foreground"}>{cat.label}</span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           </div>
+
 
           {/* A2 — På samme kortlayout (ét pr. kategori) */}
           <div className="mb-6">

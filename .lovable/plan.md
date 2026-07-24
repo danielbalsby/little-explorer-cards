@@ -1,82 +1,69 @@
+# Konstruktiv feedback på V6 — Category Illustrations + R1 Logo
 
-# Version 5 — Gold Standard & redaktionel smag
+Jeg har gennemgået `scenes-v2.tsx`, `category-illustrations.tsx`, `brandmarks-v6.tsx` og `design-lab.tsx`. Overordnet er retningen rigtig — 10 kategorier er det rette abstraktionsniveau, og at bygge R1 direkte af Gold-scenen er stærkt. Men der er reelle problemer som skal løses før vi låser noget.
 
-Bevar alt eksisterende. Kun additive ændringer, ingen nye dashboards ud over det nødvendige.
+## A. De 10 kategoriillustrationer
 
-## 1. Database (én migration)
+### Det der virker
+- **Style lock holder**: `S`/`THIN` stroke-tokens er ens på tværs af alle scener → serien føles som ét sæt.
+- **Genbrug af Gold-scenen** (`FaceToFace` som `naerhed_samspil`) er rigtigt strategisk — vi vinder ved ikke at genopfinde ankeret.
+- **`SenseDiscovery` og `PlayExplore`** (de to nye i `category-illustrations.tsx`) matcher stilen fint. Den lille prikkede koral-respons er brugt konsistent.
 
-Udvid `cards`:
-- `is_gold_standard boolean default false`
-- `gold_standard_reason text`
-- `gold_standard_tags jsonb default '[]'` — menneskelig begrundelse (multi-select)
-- `gold_standard_added_at timestamptz`, `gold_standard_removed_at timestamptz`
-- `reason_to_exist text`
-- `activity_in_one_sentence text`
-- `five_second_test text` — `pass` | `needs_simplification`
-- `intro_pattern text` — direct_action | observation | everyday_context | short_explanation | relational | sensory
-- `blocking_issues jsonb default '[]'` — safety | major_overlap | unclear_activity | performance_pressure | poor_age_fit | too_complex | insufficient_value
-- Udvid `quality_score` (jsonb, ingen skemaændring) med nye dimensioner: `baby_agency`, `reuse_value`, `transfer_value`, `memorability`, `parent_learning_value`, `title_quality`, `simplicity_score`, `match_quality` (ja|næsten|nej + note), `references_used` (array af card_ids).
+### Reelle problemer (prioriteret)
 
-Constraint: kun `approved` kan sættes til `is_gold_standard = true` (check trigger).
+**1. Kategorierne bæres af genbrugte scener — det underminerer hele V6-løftet.** Otte af ti kategorier peger direkte på en eksisterende `scenes-v2`-scene. Det betyder at `krop_bevaegelse = SoftKicks (top-down)` og `hverdagsstunder = ChangingSong (puslebord)` — men det er ikke kategori-illustrationer, det er *ét eksempel* fra kategorien. Ambitionen fra V6-briefen var at hver kategori har en signaturscene som *rummer* alle kort i den, ikke en tilfældig repræsentant. Konkret: "Skift med sang" og "Badestund" er begge `hverdagsstunder`, men scenen viser kun puslebord — badestund vil føles fejlmatchet.
 
-## 2. AI-lag (`src/lib/cards.functions.ts`)
+**2. Kompositionel diversitet er skæv.** Fem scener er profil-mod-profil eller siddende voksen+baby (`FaceToFace`, `WordsWeSee`, `SingingMusic`, `CalmOnArm`, `PlayExplore`). Når de ligger side om side i sheet-view vil de sløre kategoriforskellen. Vi mangler top-down, tæt crop, rent objekt-fokus som tydelige signaturer.
 
-Udvid, tilføj ikke helt nye pipelines:
-- `reviewCard` udvides: nye dimensioner, `blocking_issues`, `reason_to_exist`, `activity_in_one_sentence`, `five_second_test`, `title_review`, `match_quality` mod udvalgte Gold Standard-kort, sprogligt gentagelses-flag.
-- Ny `pickGoldStandardReferences(input)` — vælger 2–4 GS-kort (match alder+parent_category+energy, undgå samme mechanic).
-- `generateSmartCard` og `improveCard` modtager referencer + injicerer systemprompt-regel: *"Gold Standard cards are quality references, not content templates…"* Returnerer `references_used`.
-- Ny `detectLanguageRepetition()` — server-fn der scanner alle godkendte kort for gentagne intro/CTA-mønstre (n-grams på 3–5 ord) og returnerer top-liste + tælling. Bruges i review og som badge "bruges allerede på N kort".
-- Ny `markAsGoldStandard({ id, reason, tags })` og `unmarkGoldStandard({ id })`.
-- Skærpet systemprompt for review: hårdere scoring (2/3 er ok), score-definition indbygget, "reason to exist"-krav, anti-AI-tone regler, undgå falsk præcision, standard 3–4 trin, én kerneidé, responsivt "Se efter", kort "Pause hvis". Læg regelsættet i én konstant `EDITORIAL_RUBRIC` og genbrug den i alle prompter.
+**3. Anatomisk konsistens svinger.** Sammenlign `FaceToFace` (rolig, tegnet med sikker hånd) med `SoftKicks` babyunderkrop (path'en `M 130 82 … L 168 118 …`) som ser mere som en pære end en babykrop. `TummyPlay`-babyens hoved (`M 58 124 c -4 -8 2 -16 12 -16`) rammer heller ikke helt Gold-standarden. Ved 7 mm eller print bliver dette synligt.
 
-## 3. UI-ændringer
+**4. Farvefeltet bruges inkonsistent.** Nogle scener har fuld baggrund (`LeafMoving`, `WordsWeSee`, `BathTime`, `CalmOnArm`), andre har blot en floating cirkel/blob (`ReachingObject`, `FaceToFace`). Style lock siger "ét blødt farvefelt bagved" — vi bør vælge én model. Anbefaling: floating blob, ikke fuld rect, fordi det bevarer papirets varme.
 
-Kortbibliotek (`/bibliotek`):
-- Ny fane: **Gold Standard** — kun `is_gold_standard = true`. Kolonner: titel, alder, parent category, primary mechanics, quality score, reason.
-- Diskret ★ på kort-tiles der er GS (lille sand-farvet accent, ingen medaljer).
-- Advarselsbanner hvis >15 GS eller skæv fordeling (fx >60% samme mekanik/energy).
+**5. `PlayExplore` er for tæt pakket.** Baby + to klodser + voksenhånd + responsbue på ét 300×180 felt. Bryder "meget negativt rum"-reglen. Enten drop klods 2 eller drop voksenhånden.
 
-Kortside (`kort.$id.tsx`):
-- "Markér som Gold Standard" (kun synlig når `status=approved`) → dialog:
-  - Bekræftelse ("kvalitetsreference, ikke skabelon")
-  - Multi-select tags (Exceptionelt enkelt · Meget brugbart · Stærkt samspil · God tekst · Smukt kort · Høj genbrugsværdi · God hverdagsintegration · Andet)
-  - Fri tekst `gold_standard_reason`
-  - Viser GS eligibility-check (safety=5, ingen blocking, baby_agency≥4, parent_learning≥4, reuse≥4, memorability≥4, print_fit=pass, strong reason_to_exist, low overlap) — advarer men blokerer ikke
-- "Fjern Gold Standard" (bevarer approved-status).
-- Vis "AI vurdering" og "Redaktørens vurdering" i to adskilte kort.
+**6. `natur_udeliv` peger på `LeafMoving`** som er en *indendørs* scene (vindueskarm + blad). Semantisk mismatch — det er "sanser" mere end "natur/udeliv". Byt `sanser_opdagelse` og `natur_udeliv` scener, eller lav en ny udendørsscene til sidstnævnte.
 
-Smart-generator (`/smart`) — udvid eksisterende redaktørpanel:
-- Nye score-rows (baby_agency, reuse_value, transfer_value, memorability, parent_learning_value, title_quality, simplicity_score).
-- Blocking issues-liste (rød pille pr. issue) — blokerer auto-GS.
-- Reason to Exist (én sætning) + varsling hvis svag/tom.
-- Activity-in-one-sentence + 5-second test badge.
-- Match quality vs GS (ja/næsten/nej + forklaring).
-- "Kvalitetsreferencer brugt" (admin-info): liste med links til de 2–4 GS-kort AI brugte.
-- Sprog-gentagelses-badge på formuleringer der bruges på ≥N kort + "Omskriv mere originalt"-handling.
-- Score-legende (5=Exceptionelt … 1=Bør ikke bruges) diskret nederst i panelet.
+**7. Accentfarver i `VISUAL_CATEGORY_META` bruges ikke.** Hver kategori har en `accent` (butter/clay/mist osv.), men scenerne bruger deres egen palette. Enten fjern feltet eller bind det ind i scenens dominerende farvefelt for at give kategorien en subtil sekundær identitet.
 
-Projektbalance (`/balance`):
-- Nyt afsnit **Gold Standard coverage** — tælling pr. alder og parent category. Ren info, ingen mål.
+## B. R1 Logo Refinement
 
-## 4. Design
+### Det der virker
+- Reduktionen fra Gold-scenen til to profiler + bue er rigtig. Det er den mest ærlige destillation af DNA.
+- Tre varianter (baseline / open / compact) dækker beslutningsrummet uden at bløde ud.
 
-- Gold Standard = lille ★ i `--color-sand` accent + tynd linje. Ingen guld, ingen badges der føles gamified.
-- Score-tal med diskret farve når svag (≤2 rød-tone, 3 muted, 4–5 neutral).
+### Problemer
 
-## Ikke i denne iteration
-- Ingen nye dashboards ud over GS-coverage-sektionen.
-- Ingen automatisk GS-udpegning — kun forslag/eligibility, mennesket har sidste ord.
-- Ingen ML-læring; kun prompt-injektion.
+**1. Baby-profilen ligner ikke en baby.** I `r1a_baseline` er højreprofilen ~30% mindre end venstre, men proportionerne (hage, pande, nakke-krumning) er en voksen i skala. Ved 7 mm favicon vil man læse "to voksne" ikke "voksen + baby". Fix: babyens pande skal være proportionalt større, hagen mindre, halsen kortere.
 
-## Implementeringsrækkefølge
-1. Migration (felter + trigger)
-2. `EDITORIAL_RUBRIC` + skærpet `reviewCard` med nye dimensioner
-3. `pickGoldStandardReferences` + injektion i `generateSmartCard`/`improveCard` + `references_used`
-4. `markAsGoldStandard` / `unmarkGoldStandard` + eligibility-check
-5. `detectLanguageRepetition`
-6. UI: kort-side (GS-dialog, AI/redaktør adskilt)
-7. UI: bibliotek (GS-fane, ★, advarsler)
-8. UI: smart-panel (nye scores, blocking, reason-to-exist, referencer, sproggentagelser)
-9. Balance: GS coverage-sektion
+**2. Bue-højden i `r1b_open_response`** er næsten identisk med `r1a` (Q 55 22 vs Q 55 16) — forskellen er 6 units, hvilket forsvinder ved logo-størrelser. Enten forstørres forskellen eller drop varianten.
 
-Godkend, så starter jeg med migrationen.
+**3. `r1c_compact` er ikke reelt kompaktere.** Profilerne rykker 4 units tættere, men SVG'ens viewBox er stadig 0 0 100 100 — visuelt fylder mærket det samme. Skal enten cropes til tættere viewBox (fx 15 20 70 65) eller elementerne skal skaleres op inde i samme viewBox.
+
+**4. Buen som stiplet linje er skrøbelig på print < 10 mm.** Dashes med `strokeDasharray="1 2.6"` og stroke 1.6 vil brække op ved lille reproduktion. Anbefaling: solid tynd bue som default, stiplet kun til digital.
+
+**5. Stroke er hardcoded 2.2 på logoet vs 1.6 på scenerne.** Bevidst? Skaber en subtil ubalance når logo og kategoriillustration står ved siden af hinanden på bagsiden.
+
+## C. Systemniveau
+
+**1. Ingen thumbnail-test i briefen.** V6-planen nævner "20 blandede kort"-sheet men `SAMPLE_CARDS` har kun 2 pr. kategori. Vi kan ikke vurdere "føles det som kapitler i en bog" før vi ser fx 30–40 kort med samme scene → gentagelse er hele pointen at teste.
+
+**2. Design-lab beslutningsrum mangler A/B-lock.** Der er ingen mekanisme til at markere "denne kategori er godkendt" — vi risikerer at diskutere alle 10 samtidig i det uendelige. Foreslå per-kategori accept-toggle.
+
+**3. Ingen "kategori-mismatch"-test.** Vi bør se scenen mod dens *sværeste* kort i kategorien, ikke bare hero-titlen. "Badestund" mod puslebordsscene er den slags test der afslører hvor systemet knækker.
+
+## Foreslåede handlinger (i prioriteret rækkefølge)
+
+Hvis du godkender, gør jeg dette i næste build-run:
+
+1. **Fix `naerhed_samspil` mapping-fejl** — skift `natur_udeliv` og `sanser_opdagelse` scener så semantikken holder, eller design en dedikeret udendørs-natur-scene.
+2. **Redesign 3 svageste scener** til at være kategori-signaturer i stedet for enkelt-eksempler: `krop_bevaegelse`, `hverdagsstunder`, `leg_udforskning`. Målet: scener der rummer 4+ kort uden mismatch.
+3. **Style-lock cleanup**: floating blob-baggrund overalt (ingen fuld-rect fill), stroke 1.6/opacity 0.72 konsistent, accentfarve fra `VISUAL_CATEGORY_META` bindes ind som subtilt farvefelt.
+4. **R1 baby-proportioner**: gør baby til reelt baby (større pande, kortere hals, mindre hage). Buen: solid som default, stiplet variant separat. Compact: crop viewBox i stedet for at rykke elementer.
+5. **Udvid `SAMPLE_CARDS` til 3–4 pr. kategori** (30–40 kort total) i Design-lab, og tilføj per-kategori "Godkendt"-toggle med persistering i localStorage.
+6. **Ingen DB/generator-ændringer** — vi låser stadig kun visuelt, som V6-briefen kræver.
+
+### Teknisk
+
+- Alle ændringer sker i `src/components/card-variants/scenes-v2.tsx`, `category-illustrations.tsx`, `brandmarks-v6.tsx`, `design-lab.tsx`, `lib/visual-categories.ts`.
+- Ingen migrationer, ingen serverfn-ændringer.
+- Bevar `MICRO_STORY_RENDERERS` og eksisterende scener uændret hvor de også bruges — kun de scener kategorierne peger på skal potentielt duplikeres til kategori-specifikke varianter.
