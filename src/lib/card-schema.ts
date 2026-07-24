@@ -88,6 +88,38 @@ export const GeneratedCardSchema = z.object({
 });
 export type GeneratedCard = z.infer<typeof GeneratedCardSchema>;
 
+// ---- V3: Intelligent multi-step pipeline ----
+export const QualityScoreSchema = z.object({
+  presence: z.number(),
+  clarity: z.number(),
+  warmth: z.number(),
+  originality: z.number(),
+  safety: z.number(),
+  overall: z.number(),
+  notes: z.string(),
+});
+export type QualityScore = z.infer<typeof QualityScoreSchema>;
+
+export const SmartGeneratedCardSchema = z.object({
+  print: PrintContentSchema,
+  extended: ExtendedContentSchema,
+  illustration_prompt: z.string(),
+  activity_type: z.string(),
+  duration: z.string(),
+  primary_development_area: z.string(),
+  secondary_development_areas: z.array(z.string()),
+  parent_category: z.string(),
+  activity_mechanics: z.array(z.string()),
+  caregiver_energy: z.string(),
+  setup_level: z.string(),
+  good_when: z.array(z.string()),
+  generation_rationale: z.string(),
+  fact_statement: z.string(),
+  evidence_level: z.string(),
+  safety_triggers: z.array(z.string()),
+});
+export type SmartGeneratedCard = z.infer<typeof SmartGeneratedCardSchema>;
+
 // Legacy (bevares for bagudkompatibilitet — bruges stadig af nogle steder)
 export const CardContentSchema = z.object({
   title: z.string(),
