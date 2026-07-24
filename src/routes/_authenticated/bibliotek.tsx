@@ -87,8 +87,10 @@ function LibraryPage() {
           <SelectContent>
             <SelectItem value="all">Alle status</SelectItem>
             <SelectItem value="draft">Udkast</SelectItem>
+            <SelectItem value="candidate">Kandidat</SelectItem>
             <SelectItem value="approved">Godkendt</SelectItem>
             <SelectItem value="rejected">Afvist</SelectItem>
+            <SelectItem value="archived">Arkiveret</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex rounded-md border overflow-hidden">
@@ -112,6 +114,12 @@ function LibraryPage() {
                 <div className="mt-4 flex items-center justify-between gap-1 flex-wrap">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-muted">{STATUS_LABEL[c.status as CardStatus]}</span>
                   <div className="flex items-center gap-1">
+                    {c.deserves_spot === "ja" && (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-[color:var(--color-sage)]/30">Fortjener plads</span>
+                    )}
+                    {c.deserves_spot === "nej" && (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">Drop</span>
+                    )}
                     {c.needs_shortening && (
                       <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">Forkort</span>
                     )}

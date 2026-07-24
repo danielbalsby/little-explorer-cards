@@ -1,15 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { AGE_GROUPS, AGE_LABELS, STATUS_LABEL, type AgeGroup } from "@/lib/card-schema";
+import { analyzeSeriesStrength } from "@/lib/cards.functions";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, AlertTriangle } from "lucide-react";
+import { Sparkles, AlertTriangle, Gauge } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Dashboard,
 });
 
 function Dashboard() {
+  const seriesFn = useServerFn(analyzeSeriesStrength);
   const { data } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -19,6 +22,10 @@ function Dashboard() {
       ]);
       return { cards: cards ?? [], target: settings?.target_card_count ?? 120 };
     },
+  });
+  const { data: series } = useQuery({
+    queryKey: ["series-strength"],
+    queryFn: () => seriesFn(),
   });
 
   const cards = data?.cards ?? [];
@@ -67,6 +74,23 @@ function Dashboard() {
         <Stat label={STATUS_LABEL.draft} value={draft} tone="sand" />
         <Stat label={STATUS_LABEL.rejected} value={rejected} tone="clay" />
       </div>
+
+      {series && (
+        <section className="rounded-2xl border bg-card p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Gauge className="h-4 w-4" />
+            <h2 className="font-serif text-xl">Seriestyrke</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            <SeriesStat label="Gennemsnitlig kvalitet" value={series.avgQuality !== null ? `${series.avgQuality}/5` : "—"} />
+            <SeriesStat label="Fortjener plads" value={series.byDeserves.ja ?? 0} tone="sage" />
+            <SeriesStat label="Kan reddes" value={series.byDeserves["måske"] ?? 0} tone="sand" />
+            <SeriesStat label="Bør droppes" value={series.byDeserves.nej ?? 0} tone="clay" />
+            <SeriesStat label="Kandidater" value={series.byStatus.candidate ?? 0} />
+          </div>
+        </section>
+      )}
+
 
       <div className="grid md:grid-cols-2 gap-6">
         <section className="rounded-2xl border bg-card p-6">
@@ -141,6 +165,19 @@ function BarRow({ label, value, max, tokenVar }: { label: string; value: number;
       </div>
       <div className="h-2 rounded-full bg-muted overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${(value / max) * 100}%`, backgroundColor: `var(${tokenVar})` }} />
+      </div>
+    </div>
+  );
+}
+
+function SeriesStat({ label, value, tone }: { label: string; value: number | string; tone?: "sage" | "sand" | "clay" }) {
+  const bg = tone === "sage" ? "var(--color-sage)" : tone === "sand" ? "var(--color-sand)" : tone === "clay" ? "var(--color-clay)" : "var(--color-muted)";
+  return (
+    <div className="rounded-xl border p-4">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="flex items-baseline gap-2 mt-1">
+        <div className="font-serif text-2xl">{value}</div>
+        <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: bg }} />
       </div>
     </div>
   );
