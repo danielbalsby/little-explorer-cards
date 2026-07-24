@@ -259,6 +259,17 @@ export const saveCard = createServerFn({ method: "POST" })
     if (data.secondary_development_areas !== undefined) payload.secondary_development_areas = data.secondary_development_areas;
     if (data.needs_shortening !== undefined) payload.needs_shortening = data.needs_shortening;
 
+    if (data.parent_category !== undefined) payload.parent_category = data.parent_category;
+    if (data.activity_mechanics !== undefined) payload.activity_mechanics = data.activity_mechanics;
+    if (data.caregiver_energy !== undefined) payload.caregiver_energy = data.caregiver_energy;
+    if (data.setup_level !== undefined) payload.setup_level = data.setup_level;
+    if (data.good_when !== undefined) payload.good_when = data.good_when;
+    if (data.generation_rationale !== undefined) payload.generation_rationale = data.generation_rationale;
+    if (data.fact_statement !== undefined) payload.fact_statement = data.fact_statement;
+    if (data.evidence_level !== undefined) payload.evidence_level = data.evidence_level;
+    if (data.quality_score !== undefined) payload.quality_score = data.quality_score;
+    if (data.rejection_reason !== undefined) payload.rejection_reason = data.rejection_reason;
+
     // Konvertér materialer hvis print (én linje) → array til legacy-felt
     if (data.print && !data.extended && !data.content) {
       payload.materials = data.print.materials && data.print.materials.toLowerCase() !== "ingen"
