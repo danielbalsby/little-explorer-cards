@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { AGE_GROUPS, AGE_LABELS, STATUS_LABEL, type AgeGroup } from "@/lib/card-schema";
+import { analyzeSeriesStrength } from "@/lib/cards.functions";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, AlertTriangle } from "lucide-react";
+import { Sparkles, AlertTriangle, Gauge } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: Dashboard,
