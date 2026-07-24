@@ -7,15 +7,17 @@ import { SCENE_RENDERERS, type SceneKey } from "./scenes";
 interface Props {
   print: Partial<PrintContent>;
   scale?: number;
-  /** Ny: vælg hvilken scene-komposition der skal vises øverst. */
+  /** Vælg scene fra det oprindelige set. */
   scene?: SceneKey;
+  /** V5: injicér vilkårlig scene-komponent (bruges af Micro Story Sheet). */
+  sceneComponent?: React.FC<{ scale?: number }>;
 }
 
 /**
  * C — MINIMAL STORYBOOK
  * Style lock (streg, palette, negativt rum) er fælles. Scenen varierer per kort.
  */
-export function StorybookFront({ print, scale = 1, scene = "face" }: Props) {
+export function StorybookFront({ print, scale = 1, scene = "face", sceneComponent }: Props) {
   const { safe, trim } = CARD_FORMAT;
   const age = (print.age_group as AgeGroup) ?? "2-4m";
   const areas = (print.development_areas ?? []).slice(0, 3);
@@ -37,10 +39,11 @@ export function StorybookFront({ print, scale = 1, scene = "face" }: Props) {
           }}
         >
           {(() => {
-            const Scene = SCENE_RENDERERS[scene] ?? SCENE_RENDERERS.face;
+            const Scene = sceneComponent ?? SCENE_RENDERERS[scene] ?? SCENE_RENDERERS.face;
             return <Scene scale={scale} />;
           })()}
         </div>
+
 
         {/* Diskret vandret linje */}
         <div
