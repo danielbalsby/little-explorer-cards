@@ -359,3 +359,249 @@ export const toggleLock = createServerFn({ method: "POST" })
 
 export type SavedCard = Awaited<ReturnType<typeof saveCard>>;
 export type { CardContent, PrintContent };
+
+// ================================================================
+// V3: Intelligent, forældrecentreret generator
+// ================================================================
+
+import { SmartGeneratedCardSchema, type SmartGeneratedCard } from "./card-schema";
+import { mechanicOverlap } from "./activity-mechanics";
+
+// ---- 1) Projekt-balance (ren DB-analyse, ingen AI) ----
+export const analyzeProjectBalance = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: cards } = await context.supabase
+      .from("cards")
+      .select("age_group, primary_development_area, parent_category, caregiver_energy, activity_mechanics, status")
+      .neq("status", "rejected");
+    const list = cards ?? [];
+    const total = list.length;
+
+    const perAge: Record<string, number> = {};
+    const perArea: Record<string, number> = {};
+    const perCategory: Record<string, number> = {};
+    const perEnergy: Record<string, number> = {};
+    const perMechanic: Record<string, number> = {};
+
+    for (const c of list) {
+      perAge[c.age_group] = (perAge[c.age_group] ?? 0) + 1;
+      if (c.primary_development_area) perArea[c.primary_development_area] = (perArea[c.primary_development_area] ?? 0) + 1;
+      if (c.parent_category) perCategory[c.parent_category] = (perCategory[c.parent_category] ?? 0) + 1;
+      if (c.caregiver_energy) perEnergy[c.caregiver_energy] = (perEnergy[c.caregiver_energy] ?? 0) + 1;
+      for (const m of ((c.activity_mechanics ?? []) as string[])) {
+        perMechanic[m] = (perMechanic[m] ?? 0) + 1;
+      }
+    }
+
+    // Gaps: under-repræsenterede aldre og kategorier
+    const gaps: string[] = [];
+    const advice: string[] = [];
+    const ages = ["0-2m", "2-4m", "4-6m", "6-9m", "9-12m"];
+    for (const a of ages) {
+      const n = perAge[a] ?? 0;
+      if (n < 4) gaps.push(`Kun ${n} kort i ${a}`);
+    }
+    Object.entries(perArea).forEach(([k, n]) => {
+      if (n >= 6) advice.push(`Overvægt: ${k} (${n})`);
+    });
+    Object.entries(perMechanic).forEach(([k, n]) => {
+      if (n >= 5) advice.push(`Mekanik brugt ofte: ${k} (${n})`);
+    });
+
+    return { total, perAge, perArea, perCategory, perEnergy, perMechanic, gaps, advice };
+  });
+
+// ---- 2) Smart generator (1 AI-kald + deterministisk safety-vedhæftning) ----
+const SmartGenInput = z.object({
+  age_group: z.enum(["0-2m","2-4m","4-6m","6-9m","9-12m"]),
+  parent_category: z.string().optional(),
+  caregiver_energy: z.string().default("ok"),
+  setup_level: z.string().default("ingen"),
+  good_when: z.array(z.string()).default([]),
+  extra_instruction: z.string().default(""),
+  avoid_mechanics: z.array(z.string()).default([]),
+});
+
+const SMART_SYSTEM = `Du er en varm, evidensinformeret dansk børneudviklings-ekspert og forfatter, der skriver ét babyaktivitetskort til trætte forældre.
+
+FILOSOFI (VIS → VENT → SE → SVAR):
+Aktiviteten skal støtte NÆRVÆR frem for præstation. Ingen "tjeklister" for udvikling. Ingen jagt på milepæle.
+Voksne inviteres til at VISE (tilbyde stimulus), VENTE (give barnet tid), SE (læse barnets signaler), SVARE (matche).
+
+FORÆLDRESPROG:
+Tal som en klog veninde, ikke som en fagperson. Undgå "stimulere", "øve", "træne", "udvikle motorik". Brug "kigge", "røre ved", "sige tilbage", "være sammen om".
+Aldrig "barnet skal…". Brug "mange børn…", "nogle børn vil…".
+
+INGEN FYLD:
+- Fjern generiske sikkerhedsfraser der gælder ALLE aktiviteter ("hav altid barnet under opsyn").
+- Fjern generelle udviklingsforklaringer ("dette styrker den motoriske udvikling").
+- Fjern gentagelser og fraser der lyder pænt, men intet siger.
+- Hvis en sætning ikke ændrer, hvad forælderen gør, skal den ud.
+
+STRUKTUR:
+- title: MAX 4 ord, konkret og indbydende
+- intro: 20–30 ord — hvorfor er dette et lille godt øjeblik (ikke hvad barnet lærer)
+- steps: 3–5 handlinger, én pr. trin, ingen forklaringer i trinene
+- look_for: konkret hvad forælderen kigger efter for at læse barnets svar (fx "kigger tilbage lidt længere end sidst", "trækker foden væk")
+- pause_if: konkrete pause-signaler (ikke "hvis barnet virker utilpas")
+- fact_statement: kun hvis du kender EN VERIFICERBAR kilde. Sæt evidence_level = "stærk" | "moderat" | "folkelig". Hellere tom "" end fabrikeret.
+
+MEKANIK:
+Vælg 1-3 activity_mechanics fra denne liste, som beskriver HVAD der faktisk sker:
+visuel_sporing, kontrast_kigge, lyd_lokalisering, berøring_stimuli, spejling_ansigt, hænder_møde_midte, greb_slip, række_efter_ting, rulle_øve, sidde_støttet, kravle_øve, vestibulær_gynge, proprioception_tryk, øjenkontakt_smil, tur_taging, nynne_synge, benævne_pege, efterligning_lyd, co_regulering_ro, overgangs_ritual, pause_signaler_læse, natur_kigge, vind_solstrejf, bevægelse_barnevogn.
+
+FORÆLDREKATEGORI (vælg én):
+Rolig kontakt | Kom-i-gang leg | Ud af huset | Puslebord & bad | Bilen & barnevognen | Puttetid & afvikling | Regnvejrsleg | Gæster & familiestunder.
+
+CAREGIVER_ENERGY: udmattet | ok | energisk.
+SETUP_LEVEL: ingen | let | moderat.
+GOOD_WHEN vælg 0-3: gnavent, urolig_krop, brug_for_ro, brug_for_kontakt, brug_for_fokus, kort_tid, på_farten, hjemme_alene, sammen_med_søskende.
+
+SAFETY_TRIGGERS: liste af triggere fra sikkerhedsreglerne der matcher aktiviteten (fx "vand", "søvn", "maveleje", "løftesituation"). Tom liste hvis ingen.
+
+SAFETY-FELTET på selve kortet: KUN 1-2 sætninger hvis aktiviteten har SPECIFIKKE risici. Ellers "". Systemet vedhæfter formelle sikkerhedsregler.
+
+Alt output på DANSK. Print-tekst i alt: 120-170 ord, absolut max 190.
+
+GENERATION_RATIONALE: 1-2 sætninger til admin — hvorfor denne aktivitet passer briefen.`;
+
+export const generateSmartCard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => SmartGenInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+
+    // Hent balance kort så prompten kan undgå duplikat-mekanik
+    const { data: recentCards } = await context.supabase
+      .from("cards")
+      .select("title, activity_mechanics")
+      .neq("status", "rejected")
+      .limit(60);
+    const overusedMechanics: Record<string, number> = {};
+    for (const c of (recentCards ?? [])) {
+      for (const m of ((c.activity_mechanics ?? []) as string[])) {
+        overusedMechanics[m] = (overusedMechanics[m] ?? 0) + 1;
+      }
+    }
+    const avoidHint = [
+      ...data.avoid_mechanics,
+      ...Object.entries(overusedMechanics).filter(([, n]) => n >= 4).map(([k]) => k),
+    ];
+
+    // Safety-regler kataloget så AI kan tagge triggers
+    const { data: safetyRules } = await context.supabase
+      .from("activity_safety_rules")
+      .select("trigger, category")
+      .eq("active", true);
+    const availableTriggers = (safetyRules ?? []).map((r) => r.trigger).join(", ") || "(ingen)";
+
+    const prompt = `Generér ét babyaktivitetskort.
+
+Aldersgruppe: ${data.age_group}
+Forældrekategori (hvis valgt): ${data.parent_category || "vælg selv"}
+Caregiver energy: ${data.caregiver_energy}
+Setup-niveau: ${data.setup_level}
+Godt til: ${data.good_when.join(", ") || "vælg selv 0-3"}
+${data.extra_instruction ? `Ekstra ønske: ${data.extra_instruction}` : ""}
+
+UNDGÅ disse mekanikker (allerede overrepræsenterede): ${avoidHint.join(", ") || "(ingen)"}
+Tilgængelige safety-triggers du kan tagge: ${availableTriggers}
+
+Sæt print.age_group = ${data.age_group}.`;
+
+    const gateway = createLovableAiGatewayProvider(key);
+
+    try {
+      const { output } = await generateText({
+        model: gateway("openai/gpt-5.5"),
+        system: SMART_SYSTEM,
+        prompt,
+        output: Output.object({ schema: SmartGeneratedCardSchema }),
+      });
+
+      // Deterministisk safety-vedhæftning
+      const triggered = (safetyRules ?? []).filter((r) => output.safety_triggers.includes(r.trigger));
+      let attachedSafety = output.print.safety ?? "";
+      // Vi tilføjer IKKE til print (pladsmangel) — vi returnerer separat, så UI kan vise
+      const safetyAttachments = triggered.map((r) => ({
+        trigger: r.trigger,
+        category: r.category,
+      }));
+
+      // Lighedstjek på mekanik
+      const { data: allCards } = await context.supabase
+        .from("cards")
+        .select("id, card_number, title, activity_mechanics")
+        .neq("status", "rejected");
+      const similarByMechanic = (allCards ?? [])
+        .map((c) => ({
+          id: c.id,
+          card_number: c.card_number,
+          title: c.title,
+          mechanic_overlap: mechanicOverlap(
+            output.activity_mechanics,
+            (c.activity_mechanics ?? []) as string[],
+          ),
+        }))
+        .filter((c) => c.mechanic_overlap >= 0.5)
+        .sort((a, b) => b.mechanic_overlap - a.mechanic_overlap)
+        .slice(0, 3);
+
+      return {
+        ok: true as const,
+        card: output as SmartGeneratedCard,
+        attachedSafety,
+        safetyAttachments,
+        similar: similarByMechanic,
+      };
+    } catch (error) {
+      if (NoObjectGeneratedError.isInstance(error)) {
+        return { ok: false as const, error: "Kunne ikke tolke AI-svar. Prøv igen." };
+      }
+      const msg = error instanceof Error ? error.message : "Ukendt fejl";
+      console.error("[generateSmartCard]", msg);
+      if (msg.includes("429")) return { ok: false as const, error: "AI-grænse ramt. Prøv igen om lidt." };
+      if (msg.includes("402")) return { ok: false as const, error: "AI-credits opbrugt." };
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---- 3) Kritik-agent (Editor) — kvalitetsscore + forbedringsforslag ----
+import { QualityScoreSchema } from "./card-schema";
+const CritiqueInput = z.object({ print: PrintContentSchema });
+
+export const critiqueCard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => CritiqueInput.parse(data))
+  .handler(async ({ data }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("Missing LOVABLE_API_KEY");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    try {
+      const { output } = await generateText({
+        model: gateway("openai/gpt-5.5"),
+        system: `Du er en streng redaktør. Bedøm kortet på: presence (nærvær over præstation), clarity (kan en træt forælder følge det), warmth (varm, ikke-dømmende), originality (ikke standardøvelse), safety (mangler noget). Score 1-5. Notes: konkret hvad der skal ændres. Vær ærlig — det er OK at give 2.`,
+        prompt: `Bedøm dette kort:\n\n${JSON.stringify(data.print, null, 2)}`,
+        output: Output.object({ schema: QualityScoreSchema }),
+      });
+      return { ok: true as const, score: output };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Ukendt fejl";
+      return { ok: false as const, error: msg };
+    }
+  });
+
+// ---- 4) Afvis kort med begrundelse ----
+export const rejectCard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string(), reason: z.string() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("cards")
+      .update({ status: "rejected", rejection_reason: data.reason })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
