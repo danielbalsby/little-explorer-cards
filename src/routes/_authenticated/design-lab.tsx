@@ -283,7 +283,7 @@ function DesignLab() {
             <div className="rounded-2xl p-8" style={{ background: PANEL_BG }}>
               <div className="flex flex-wrap gap-6 justify-center">
                 {FRONT_SAMPLES.map((f) => {
-                  const Scene = require("@/components/card-variants/scenes").SCENE_RENDERERS[f.scene];
+                  const Scene = SCENE_RENDERERS[f.scene];
                   return (
                     <div key={f.label} className="flex flex-col items-center gap-2">
                       <div style={{
