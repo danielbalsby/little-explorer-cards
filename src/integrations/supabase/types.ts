@@ -102,8 +102,11 @@ export type Database = {
           caregiver_energy: string | null
           created_at: string
           created_by: string | null
+          deserves_spot: string | null
           did_you_know: string
           duration: string
+          editor_notes: string | null
+          editorial_verdict: string | null
           evidence_level: string | null
           extended_content: Json | null
           fact_source: string | null
@@ -115,6 +118,7 @@ export type Database = {
           good_when: Json
           id: string
           illustration_prompt: string | null
+          illustration_quality: Json | null
           illustration_status: string
           illustration_url: string | null
           is_demo: boolean
@@ -126,6 +130,7 @@ export type Database = {
           pause_signs: string
           primary_development_area: string
           print_content: Json | null
+          print_fit_percentage: number | null
           purpose: string
           quality_score: Json | null
           rejection_reason: string | null
@@ -149,8 +154,11 @@ export type Database = {
           caregiver_energy?: string | null
           created_at?: string
           created_by?: string | null
+          deserves_spot?: string | null
           did_you_know?: string
           duration?: string
+          editor_notes?: string | null
+          editorial_verdict?: string | null
           evidence_level?: string | null
           extended_content?: Json | null
           fact_source?: string | null
@@ -162,6 +170,7 @@ export type Database = {
           good_when?: Json
           id?: string
           illustration_prompt?: string | null
+          illustration_quality?: Json | null
           illustration_status?: string
           illustration_url?: string | null
           is_demo?: boolean
@@ -173,6 +182,7 @@ export type Database = {
           pause_signs?: string
           primary_development_area?: string
           print_content?: Json | null
+          print_fit_percentage?: number | null
           purpose?: string
           quality_score?: Json | null
           rejection_reason?: string | null
@@ -196,8 +206,11 @@ export type Database = {
           caregiver_energy?: string | null
           created_at?: string
           created_by?: string | null
+          deserves_spot?: string | null
           did_you_know?: string
           duration?: string
+          editor_notes?: string | null
+          editorial_verdict?: string | null
           evidence_level?: string | null
           extended_content?: Json | null
           fact_source?: string | null
@@ -209,6 +222,7 @@ export type Database = {
           good_when?: Json
           id?: string
           illustration_prompt?: string | null
+          illustration_quality?: Json | null
           illustration_status?: string
           illustration_url?: string | null
           is_demo?: boolean
@@ -220,6 +234,7 @@ export type Database = {
           pause_signs?: string
           primary_development_area?: string
           print_content?: Json | null
+          print_fit_percentage?: number | null
           purpose?: string
           quality_score?: Json | null
           rejection_reason?: string | null
@@ -292,6 +307,47 @@ export type Database = {
         }
         Relationships: []
       }
+      editorial_feedback: {
+        Row: {
+          action_taken: string | null
+          card_id: string | null
+          created_at: string
+          created_by: string | null
+          feedback_note: string | null
+          feedback_reasons: Json
+          feedback_type: string
+          id: string
+        }
+        Insert: {
+          action_taken?: string | null
+          card_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback_note?: string | null
+          feedback_reasons?: Json
+          feedback_type: string
+          id?: string
+        }
+        Update: {
+          action_taken?: string | null
+          card_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          feedback_note?: string | null
+          feedback_reasons?: Json
+          feedback_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "editorial_feedback_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_settings: {
         Row: {
           created_at: string
@@ -356,7 +412,7 @@ export type Database = {
     Enums: {
       age_group: "0-2m" | "2-4m" | "4-6m" | "6-9m" | "9-12m"
       app_role: "admin" | "editor"
-      card_status: "draft" | "approved" | "rejected"
+      card_status: "draft" | "approved" | "rejected" | "candidate" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -486,7 +542,7 @@ export const Constants = {
     Enums: {
       age_group: ["0-2m", "2-4m", "4-6m", "6-9m", "9-12m"],
       app_role: ["admin", "editor"],
-      card_status: ["draft", "approved", "rejected"],
+      card_status: ["draft", "approved", "rejected", "candidate", "archived"],
     },
   },
 } as const
