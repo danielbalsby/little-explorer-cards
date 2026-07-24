@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_authenticated/")({
 });
 
 function Dashboard() {
+  const seriesFn = useServerFn(analyzeSeriesStrength);
   const { data } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -21,6 +22,10 @@ function Dashboard() {
       ]);
       return { cards: cards ?? [], target: settings?.target_card_count ?? 120 };
     },
+  });
+  const { data: series } = useQuery({
+    queryKey: ["series-strength"],
+    queryFn: () => seriesFn(),
   });
 
   const cards = data?.cards ?? [];
