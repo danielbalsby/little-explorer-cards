@@ -16,6 +16,7 @@ import { Route as AuthenticatedSmartRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndstillingerRouteImport } from './routes/_authenticated/indstillinger'
 import { Route as AuthenticatedGenererRouteImport } from './routes/_authenticated/generer'
 import { Route as AuthenticatedDesignmanualRouteImport } from './routes/_authenticated/designmanual'
+import { Route as AuthenticatedDesignLabRouteImport } from './routes/_authenticated/design-lab'
 import { Route as AuthenticatedBibliotekRouteImport } from './routes/_authenticated/bibliotek'
 import { Route as AuthenticatedBalanceRouteImport } from './routes/_authenticated/balance'
 import { Route as AuthenticatedKortIdRouteImport } from './routes/_authenticated/kort.$id'
@@ -57,6 +58,11 @@ const AuthenticatedDesignmanualRoute =
     path: '/designmanual',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDesignLabRoute = AuthenticatedDesignLabRouteImport.update({
+  id: '/design-lab',
+  path: '/design-lab',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBibliotekRoute = AuthenticatedBibliotekRouteImport.update({
   id: '/bibliotek',
   path: '/bibliotek',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/balance': typeof AuthenticatedBalanceRoute
   '/bibliotek': typeof AuthenticatedBibliotekRoute
+  '/design-lab': typeof AuthenticatedDesignLabRoute
   '/designmanual': typeof AuthenticatedDesignmanualRoute
   '/generer': typeof AuthenticatedGenererRoute
   '/indstillinger': typeof AuthenticatedIndstillingerRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/balance': typeof AuthenticatedBalanceRoute
   '/bibliotek': typeof AuthenticatedBibliotekRoute
+  '/design-lab': typeof AuthenticatedDesignLabRoute
   '/designmanual': typeof AuthenticatedDesignmanualRoute
   '/generer': typeof AuthenticatedGenererRoute
   '/indstillinger': typeof AuthenticatedIndstillingerRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/balance': typeof AuthenticatedBalanceRoute
   '/_authenticated/bibliotek': typeof AuthenticatedBibliotekRoute
+  '/_authenticated/design-lab': typeof AuthenticatedDesignLabRoute
   '/_authenticated/designmanual': typeof AuthenticatedDesignmanualRoute
   '/_authenticated/generer': typeof AuthenticatedGenererRoute
   '/_authenticated/indstillinger': typeof AuthenticatedIndstillingerRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/balance'
     | '/bibliotek'
+    | '/design-lab'
     | '/designmanual'
     | '/generer'
     | '/indstillinger'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/balance'
     | '/bibliotek'
+    | '/design-lab'
     | '/designmanual'
     | '/generer'
     | '/indstillinger'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/balance'
     | '/_authenticated/bibliotek'
+    | '/_authenticated/design-lab'
     | '/_authenticated/designmanual'
     | '/_authenticated/generer'
     | '/_authenticated/indstillinger'
@@ -213,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDesignmanualRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/design-lab': {
+      id: '/_authenticated/design-lab'
+      path: '/design-lab'
+      fullPath: '/design-lab'
+      preLoaderRoute: typeof AuthenticatedDesignLabRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/bibliotek': {
       id: '/_authenticated/bibliotek'
       path: '/bibliotek'
@@ -258,6 +277,7 @@ const AuthenticatedKortIdRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBalanceRoute: typeof AuthenticatedBalanceRoute
   AuthenticatedBibliotekRoute: typeof AuthenticatedBibliotekRoute
+  AuthenticatedDesignLabRoute: typeof AuthenticatedDesignLabRoute
   AuthenticatedDesignmanualRoute: typeof AuthenticatedDesignmanualRoute
   AuthenticatedGenererRoute: typeof AuthenticatedGenererRoute
   AuthenticatedIndstillingerRoute: typeof AuthenticatedIndstillingerRoute
@@ -269,6 +289,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBalanceRoute: AuthenticatedBalanceRoute,
   AuthenticatedBibliotekRoute: AuthenticatedBibliotekRoute,
+  AuthenticatedDesignLabRoute: AuthenticatedDesignLabRoute,
   AuthenticatedDesignmanualRoute: AuthenticatedDesignmanualRoute,
   AuthenticatedGenererRoute: AuthenticatedGenererRoute,
   AuthenticatedIndstillingerRoute: AuthenticatedIndstillingerRoute,
