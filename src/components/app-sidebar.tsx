@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Sparkles, Library, ScaleIcon, BookOpen, Settings,
+  LayoutDashboard, Sparkles, Library, ScaleIcon, BookOpen, Settings, Wand2,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -9,6 +9,7 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Smart generator", url: "/smart", icon: Wand2 },
   { title: "Generér kort", url: "/generer", icon: Sparkles },
   { title: "Kortbibliotek", url: "/bibliotek", icon: Library },
   { title: "Projektbalance", url: "/balance", icon: ScaleIcon },

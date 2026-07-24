@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedSmartRouteImport } from './routes/_authenticated/smart'
 import { Route as AuthenticatedIndstillingerRouteImport } from './routes/_authenticated/indstillinger'
 import { Route as AuthenticatedGenererRouteImport } from './routes/_authenticated/generer'
 import { Route as AuthenticatedDesignmanualRouteImport } from './routes/_authenticated/designmanual'
@@ -32,6 +33,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSmartRoute = AuthenticatedSmartRouteImport.update({
+  id: '/smart',
+  path: '/smart',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedIndstillingerRoute =
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/designmanual': typeof AuthenticatedDesignmanualRoute
   '/generer': typeof AuthenticatedGenererRoute
   '/indstillinger': typeof AuthenticatedIndstillingerRoute
+  '/smart': typeof AuthenticatedSmartRoute
   '/kort/$id': typeof AuthenticatedKortIdRouteWithChildren
   '/kort/$id/print': typeof AuthenticatedKortIdPrintRoute
 }
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/designmanual': typeof AuthenticatedDesignmanualRoute
   '/generer': typeof AuthenticatedGenererRoute
   '/indstillinger': typeof AuthenticatedIndstillingerRoute
+  '/smart': typeof AuthenticatedSmartRoute
   '/': typeof AuthenticatedIndexRoute
   '/kort/$id': typeof AuthenticatedKortIdRouteWithChildren
   '/kort/$id/print': typeof AuthenticatedKortIdPrintRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/_authenticated/designmanual': typeof AuthenticatedDesignmanualRoute
   '/_authenticated/generer': typeof AuthenticatedGenererRoute
   '/_authenticated/indstillinger': typeof AuthenticatedIndstillingerRoute
+  '/_authenticated/smart': typeof AuthenticatedSmartRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/kort/$id': typeof AuthenticatedKortIdRouteWithChildren
   '/_authenticated/kort/$id/print': typeof AuthenticatedKortIdPrintRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/designmanual'
     | '/generer'
     | '/indstillinger'
+    | '/smart'
     | '/kort/$id'
     | '/kort/$id/print'
   fileRoutesByTo: FileRoutesByTo
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/designmanual'
     | '/generer'
     | '/indstillinger'
+    | '/smart'
     | '/'
     | '/kort/$id'
     | '/kort/$id/print'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/_authenticated/designmanual'
     | '/_authenticated/generer'
     | '/_authenticated/indstillinger'
+    | '/_authenticated/smart'
     | '/_authenticated/'
     | '/_authenticated/kort/$id'
     | '/_authenticated/kort/$id/print'
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/smart': {
+      id: '/_authenticated/smart'
+      path: '/smart'
+      fullPath: '/smart'
+      preLoaderRoute: typeof AuthenticatedSmartRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/indstillinger': {
@@ -242,6 +261,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDesignmanualRoute: typeof AuthenticatedDesignmanualRoute
   AuthenticatedGenererRoute: typeof AuthenticatedGenererRoute
   AuthenticatedIndstillingerRoute: typeof AuthenticatedIndstillingerRoute
+  AuthenticatedSmartRoute: typeof AuthenticatedSmartRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedKortIdRoute: typeof AuthenticatedKortIdRouteWithChildren
 }
@@ -252,6 +272,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDesignmanualRoute: AuthenticatedDesignmanualRoute,
   AuthenticatedGenererRoute: AuthenticatedGenererRoute,
   AuthenticatedIndstillingerRoute: AuthenticatedIndstillingerRoute,
+  AuthenticatedSmartRoute: AuthenticatedSmartRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedKortIdRoute: AuthenticatedKortIdRouteWithChildren,
 }
@@ -266,13 +287,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
