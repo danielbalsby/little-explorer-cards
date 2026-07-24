@@ -183,6 +183,8 @@ function DesignLab() {
   const [selectedR1, setSelectedR1] = useState<R1Variant>("r1a_baseline");
   const [selectedBackV3] = useState(BACK_V3_VARIANTS[0]?.id ?? "quiet_story");
   const [sheetScale, setSheetScale] = useState(1);
+  const { approved, toggle } = useCategoryApprovals();
+  const approvedCount = VISUAL_CATEGORY_LIST.filter((c) => approved[c.id]).length;
 
   return (
     <div className="min-h-screen" style={{ background: "#EFE9DE" }}>
@@ -222,33 +224,50 @@ function DesignLab() {
             </div>
           </div>
 
-          {/* A1 — Illustration Sheet (uden tekst) */}
+          {/* A1 — Illustration Sheet (uden tekst) med per-kategori godkendelse */}
           <div className="mb-6">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
-              A1 · Illustration sheet · uden tekst
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                A1 · Illustration sheet · klik for at markere som godkendt
+              </div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Godkendt: <span className="tabular-nums text-[#342D27]">{approvedCount} / {VISUAL_CATEGORY_LIST.length}</span>
+              </div>
             </div>
             <div className="rounded-2xl p-8" style={{ background: PANEL_BG }}>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
                 {VISUAL_CATEGORY_LIST.map((cat) => {
                   const Scene = CATEGORY_SCENES[cat.id];
+                  const isOk = !!approved[cat.id];
                   return (
-                    <div key={cat.id} className="flex flex-col items-center gap-2">
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggle(cat.id)}
+                      className="flex flex-col items-center gap-2 text-left group"
+                    >
                       <div style={{
                         width: "100%", aspectRatio: "300 / 180",
                         background: "#F8F4EC", borderRadius: 12, overflow: "hidden",
                         boxShadow: "0 8px 20px -8px rgba(52,45,39,0.2)",
+                        outline: isOk ? "2px solid #342D27" : "2px solid transparent",
+                        outlineOffset: 2,
+                        transition: "outline-color 120ms",
                       }}>
                         <Scene />
                       </div>
-                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground text-center">
-                        {cat.label}
+                      <div className="text-[10px] uppercase tracking-widest text-center flex items-center gap-1 justify-center"
+                        style={{ color: isOk ? "#342D27" : undefined }}>
+                        {isOk && <Check className="h-3 w-3" />}
+                        <span className={isOk ? "" : "text-muted-foreground"}>{cat.label}</span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           </div>
+
 
           {/* A2 — På samme kortlayout (ét pr. kategori) */}
           <div className="mb-6">
