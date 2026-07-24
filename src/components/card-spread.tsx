@@ -32,16 +32,7 @@ export function CardSpread({
         <CardFront print={print} guides={guides} scale={scale} />
       )}
       {(side === "back" || side === "both") && (
-        <CardBack
-          title={print.title}
-          age_group={age}
-          card_number={card_number}
-          illustration_url={illustration_url}
-          illustration_status={illustration_status}
-          seed={seed}
-          guides={guides}
-          scale={scale}
-        />
+        <CardBack scale={scale} />
       )}
     </div>
   );
