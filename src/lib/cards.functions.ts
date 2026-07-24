@@ -634,47 +634,95 @@ export const rejectCard = createServerFn({ method: "POST" })
 
 import { ReviewScoreSchema, EditorialReviewSchema } from "./card-schema";
 
-// ---- Fuld redaktionel review (10 dimensioner + dom) ----
+// ---- V5: Fælles redaktionel rubrik (bruges i alle review/generate/improve prompts) ----
+const EDITORIAL_RUBRIC = `REDAKTIONEL SMAG (Gold Standard):
+- De bedste kort er meget enkle, konkrete, varme uden at være sødladne, faglige uden at lyde faglige, lette at huske, realistiske for trætte forældre.
+- "Good enough" er IKKE Gold Standard. Belønn ikke et kort blot fordi det er sikkert og kompetent. Et premium-kort skal have en tydelig grund til at eksistere.
+- En klassisk aktivitet er ikke automatisk dårlig, men hvis samlingen allerede dækker samme oplevelse, anbefal revision eller afvisning.
+- Score-definition:
+  5 = Exceptionelt stærkt. Ingen oplagt forbedring.
+  4 = Meget godt. Små forbedringer mulige.
+  3 = Acceptabelt, men et reelt problem. Bør forbedres før godkendelse.
+  2 = Svagt. Betydelig revision nødvendig.
+  1 = Bør ikke bruges.
+- Brug 2 og 3 når det passer. Overfokusér ikke på gennemsnit — én kritisk svaghed (fx originalitet=2) betyder "kræver revision" selv hvis alt andet er 5.
+- Undgå at rose kort som er "korrekt, men kedeligt, generisk eller overflødigt". Sig det ærligt.
+
+ANTI-AI-TONE:
+- Undgå poetiske vendinger, generiske varme fraser, abstrakt faglighed, marketingsprog.
+- Varmen skal komme fra situationens enkelhed, ikke fra mange følelsesord.
+- Falsk præcision (25 cm, 7 sekunder) bruges kun hvis tallet reelt ændrer handlingen/sikkerheden.
+
+STRUKTURREGLER:
+- Standard 3–4 aktivitetstrin. 5 kun hvis nødvendigt. 6 sjældent.
+- Ét kort = én kerneidé. Hvis aktiviteten skifter karakter halvvejs, flyt til "Prøv også" eller fjern.
+- "Pause hvis": max 3–4 tydelige signaler på print.
+- "Se efter" bør have strukturen signal → voksenrespons ("Hvis baby …, så …").
+- Titel: kort, konkret, memorable. Undgå gentagne mønstre ("X-leg", "X-stund", "Lille X").
+
+BLOCKING ISSUES (én er nok til at kortet IKKE kan blive Gold Standard):
+safety, major_overlap, unclear_activity, performance_pressure, poor_age_fit, too_complex, insufficient_value.`;
+
+// ---- Fuld redaktionel review (V5: 17 dimensioner + dom + meta) ----
 const ReviewInput = z.object({
   print: PrintContentSchema,
   parent_category: z.string().optional(),
   activity_mechanics: z.array(z.string()).default([]),
 });
 
-const REVIEW_SYSTEM = `Du er en meget streng, erfaren redaktør på et premium babyaktivitetskort-produkt.
-Dit job er at afgøre om DETTE kort fortjener en plads i den endelige serie (målet er 120 kort — hvert kort skal være unikt værdifuldt).
+const REVIEW_SYSTEM = `Du er en meget streng, erfaren redaktør på et premium babyaktivitetskort-produkt (målet er ~120 stærke kort — hvert kort skal være unikt værdifuldt).
 
-Bedøm på 10 dimensioner, hver på skala 1-5:
-1. presence: nærvær over præstation
-2. clarity: kan en træt forælder følge det uden at læse to gange
-3. warmth: varm, ikke-dømmende, ligeværdig tone
-4. originality: ikke bare "standardøvelse"
-5. safety: er alt væsentligt sikret uden overflødige fraser
-6. age_fit: passer aktiviteten aldersgruppen præcist
-7. no_performance_pressure: intet "barnet skal…", ingen milepæls-jagt
-8. actionable: konkrete handlinger, ikke abstrakte råd
-9. print_fit: passer teksten på et A6 kort (ikke for meget)
-10. parent_language: forældresprog, ikke fagsprog
+${EDITORIAL_RUBRIC}
 
-overall = gennemsnit (afrundet til én decimal).
+Bedøm på 17 dimensioner, hver 1-5 (heltal):
+Kerne: presence, clarity, warmth, originality, safety, age_fit, no_performance_pressure, actionable, print_fit, parent_language.
+Udvidede (V5): baby_agency (kan baby påvirke tempo/retning), reuse_value (kan familien realistisk vende tilbage), transfer_value (lærer forælderen en måde at være sammen på), memorability (kan man huske idéen dagen efter), parent_learning_value (lærer omsorgspersonen noget om samspil), title_quality (klar, varm, memorable, unik), simplicity_score (kan aktiviteten forklares i én sætning).
+overall = gennemsnit afrundet til én decimal.
 
-Derefter DOM:
-- deserves_spot: "ja" (klart værdi), "måske" (kan reddes), "nej" (drop det)
-- editorial_verdict: 1-2 sætninger — din konkrete dom
-- suggested_improvements: 2-4 konkrete tiltag hvis "måske"; tomme hvis "ja"; hvorfor drop hvis "nej"
-- strengths: 1-3 stikord med hvad der virker
-- weaknesses: 1-3 stikord med hvad der ikke virker
-- notes: overordnet redaktionel note
+Derefter:
+- deserves_spot: "ja" | "måske" | "nej"
+- editorial_verdict: 1-2 konkrete sætninger
+- suggested_improvements: 2-4 konkrete tiltag (tomme hvis "ja"; forklaring hvis "nej")
+- strengths / weaknesses: 1-3 stikord hver
+- notes: overordnet note
+- reason_to_exist: ÉN konkret sætning — hvorfor SKAL dette kort eksistere. Dårligt: "det støtter barnets udvikling". Godt: "det giver førstegangsforælderen en konkret måde at skabe turtagning med kun ansigt og stemme". Hvis du ikke kan give en konkret grund → faresignal, sæt lav score på originality/insufficient_value.
+- activity_in_one_sentence: hele aktiviteten i én kort sætning. Hvis den ikke kan → reducer simplicity_score.
+- five_second_test: "pass" hvis en træt forælder forstår aktiviteten på ~5 sekunder, ellers "needs_simplification".
+- intro_pattern: én af direct_action | observation | everyday_context | short_explanation | relational | sensory.
+- blocking_issues: array (kan være tom) af safety, major_overlap, unclear_activity, performance_pressure, poor_age_fit, too_complex, insufficient_value.
+- match_quality: "ja" | "næsten" | "nej" — holder kortet samme kvalitetsniveau som Gold Standard-referencerne (hvis nogen leveres).
+- match_quality_note: max 2 sætninger med begrundelse.
+- title_review_note: kort vurdering af titlen (klarhed, varme, uniqueness).
 
-Vær ærlig. Det er OK at afvise. Det er bedre at have 80 stærke kort end 120 middelmådige.`;
+Vær ærlig. Det er OK at afvise. Bedre 80 stærke kort end 120 middelmådige.`;
 
 export const reviewCard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ReviewInput.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key);
+
+    // Hent op til 4 Gold Standard-kort som kvalitetsreference (matcher alder + parent_cat hvis muligt).
+    const { data: gsAll } = await context.supabase
+      .from("cards")
+      .select("id, card_number, title, age_group, parent_category, activity_mechanics, print_content")
+      .eq("is_gold_standard", true)
+      .limit(30);
+    const gsList = gsAll ?? [];
+    const picked = pickReferences(gsList, {
+      age_group: data.print.age_group,
+      parent_category: data.parent_category,
+      activity_mechanics: data.activity_mechanics,
+      limit: 3,
+    });
+
+    const referenceBlock = picked.length
+      ? `\n\nKVALITETSREFERENCER (Gold Standard — MATCH DERES REDAKTIONELLE NIVEAU, KOPIÉR IKKE INDHOLD):\n${picked
+          .map((r) => `#${r.card_number} "${r.title}" — ${(r.activity_mechanics ?? []).join(", ") || "—"}`)
+          .join("\n")}`
+      : "";
 
     try {
       const { output } = await generateText({
@@ -685,11 +733,16 @@ export const reviewCard = createServerFn({ method: "POST" })
 Forældrekategori: ${data.parent_category ?? "(ikke sat)"}
 Mekanik: ${data.activity_mechanics.join(", ") || "(ingen)"}
 Ordantal på print: ${countPrintWords(data.print)}
+${referenceBlock}
 
 ${JSON.stringify(data.print, null, 2)}`,
         output: Output.object({ schema: EditorialReviewSchema }),
       });
-      return { ok: true as const, review: output };
+      return {
+        ok: true as const,
+        review: output,
+        references_used: picked.map((r) => ({ id: r.id, card_number: r.card_number, title: r.title })),
+      };
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {
         return { ok: false as const, error: "Kunne ikke tolke review-svar." };
