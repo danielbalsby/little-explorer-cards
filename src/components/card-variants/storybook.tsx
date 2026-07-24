@@ -2,18 +2,20 @@ import type { PrintContent } from "@/lib/card-schema";
 import { AGE_LABELS, type AgeGroup } from "@/lib/card-schema";
 import { CARD_FORMAT } from "@/lib/card-format";
 import { cardShell, cardTrim, P } from "./shared";
+import { SCENE_RENDERERS, type SceneKey } from "./scenes";
 
 interface Props {
   print: Partial<PrintContent>;
   scale?: number;
+  /** Ny: vælg hvilken scene-komposition der skal vises øverst. */
+  scene?: SceneKey;
 }
 
 /**
  * C — MINIMAL STORYBOOK
- * Illustration fylder øverste ⅓ som en scene. Rolig typografi.
- * Håndtegnet stemning, meget negativ plads.
+ * Style lock (streg, palette, negativt rum) er fælles. Scenen varierer per kort.
  */
-export function StorybookFront({ print, scale = 1 }: Props) {
+export function StorybookFront({ print, scale = 1, scene = "face" }: Props) {
   const { safe, trim } = CARD_FORMAT;
   const age = (print.age_group as AgeGroup) ?? "2-4m";
   const areas = (print.development_areas ?? []).slice(0, 3);
@@ -34,7 +36,10 @@ export function StorybookFront({ print, scale = 1 }: Props) {
             overflow: "hidden",
           }}
         >
-          <FaceToFaceScene scale={scale} />
+          {(() => {
+            const Scene = SCENE_RENDERERS[scene] ?? SCENE_RENDERERS.face;
+            return <Scene scale={scale} />;
+          })()}
         </div>
 
         {/* Diskret vandret linje */}
@@ -208,48 +213,3 @@ function StoryLine({
   );
 }
 
-/** Enkel scene: to blide profiler i tone-i-tone, tæppe, blad. */
-function FaceToFaceScene({ scale }: { scale: number }) {
-  return (
-    <svg
-      viewBox="0 0 300 180"
-      preserveAspectRatio="xMidYMid slice"
-      style={{ width: "100%", height: "100%", display: "block" }}
-      aria-hidden
-    >
-      {/* Horisont / gulv */}
-      <path d="M 0 140 Q 150 120 300 140 L 300 180 L 0 180 Z" fill={P.sand} opacity="0.65" />
-      {/* Blødt lys bag hovederne */}
-      <circle cx="150" cy="88" r="60" fill={P.butter} opacity="0.55" />
-      {/* Adult (venstre) — enkel profil */}
-      <path
-        d="M 90 150 C 82 130 82 105 92 90 C 102 74 122 70 132 82 C 138 90 138 100 134 106 C 130 112 130 118 134 122 C 138 126 134 132 130 134 C 126 136 128 144 132 148"
-        fill="none"
-        stroke={P.ink}
-        strokeOpacity="0.7"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="118" cy="94" r="1.6" fill={P.ink} opacity="0.75" />
-      {/* Baby (højre) — mindre */}
-      <path
-        d="M 210 150 C 216 132 216 112 208 100 C 200 88 184 86 176 96 C 172 102 172 110 176 114 C 180 118 180 122 176 124 C 172 126 176 132 180 134"
-        fill="none"
-        stroke={P.ink}
-        strokeOpacity="0.7"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="188" cy="108" r="1.4" fill={P.ink} opacity="0.75" />
-      {/* Turtagnings-lyd */}
-      <path d="M 140 82 Q 165 62 195 84" stroke={P.clay} strokeWidth="1.2" fill="none" strokeDasharray="1 3" strokeLinecap="round" />
-      <circle cx="167" cy="70" r="1.6" fill={P.clay} />
-      <circle cx="176" cy="72" r="1.1" fill={P.clay} opacity="0.7" />
-      {/* Lille blad-detalje nederst højre */}
-      <path d="M 260 152 q 8 -6 14 2 q -6 6 -14 -2 z" fill={P.sage} opacity="0.8" />
-      <path d="M 260 152 q 6 -3 12 0" stroke={P.ink} strokeOpacity="0.4" strokeWidth="0.6" fill="none" />
-    </svg>
-  );
-}
