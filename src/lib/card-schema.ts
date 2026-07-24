@@ -34,13 +34,67 @@ export const ACTIVITY_TYPES = [
 ] as const;
 
 export const DURATIONS = ["3-5 minutter", "5-10 minutter", "Fleksibel"] as const;
-export const STATUSES = ["draft", "approved", "rejected"] as const;
+export const STATUSES = ["draft", "candidate", "approved", "rejected", "archived"] as const;
 export type CardStatus = (typeof STATUSES)[number];
 
 export const STATUS_LABEL: Record<CardStatus, string> = {
   draft: "Udkast",
+  candidate: "Kandidat",
   approved: "Godkendt",
   rejected: "Afvist",
+  archived: "Arkiveret",
+};
+
+// ---- V4: Redaktionel review (10 dimensioner + dom) ----
+export const ReviewScoreSchema = z.object({
+  presence: z.number(),
+  clarity: z.number(),
+  warmth: z.number(),
+  originality: z.number(),
+  safety: z.number(),
+  age_fit: z.number(),
+  no_performance_pressure: z.number(),
+  actionable: z.number(),
+  print_fit: z.number(),
+  parent_language: z.number(),
+  overall: z.number(),
+  notes: z.string(),
+  strengths: z.array(z.string()),
+  weaknesses: z.array(z.string()),
+});
+export type ReviewScore = z.infer<typeof ReviewScoreSchema>;
+
+export const EditorialReviewSchema = z.object({
+  score: ReviewScoreSchema,
+  deserves_spot: z.enum(["ja", "måske", "nej"]),
+  editorial_verdict: z.string(),
+  suggested_improvements: z.array(z.string()),
+});
+export type EditorialReview = z.infer<typeof EditorialReviewSchema>;
+
+export const FEEDBACK_REASONS = [
+  "for_generisk",
+  "for_langt",
+  "manglende_sikkerhed",
+  "for_svært_at_følge",
+  "præstationspres",
+  "ikke_aldersrelevant",
+  "for_likt_andet_kort",
+  "sprog_for_fagligt",
+  "ingen_kerneværdi",
+  "andet",
+] as const;
+export const FEEDBACK_REASON_LABEL: Record<(typeof FEEDBACK_REASONS)[number], string> = {
+  for_generisk: "For generisk",
+  for_langt: "For langt",
+  manglende_sikkerhed: "Manglende sikkerhed",
+  for_svært_at_følge: "For svært at følge",
+  præstationspres: "Præstationspres",
+  ikke_aldersrelevant: "Ikke aldersrelevant",
+  for_likt_andet_kort: "Ligner andet kort",
+  sprog_for_fagligt: "Sprog for fagligt",
+  ingen_kerneværdi: "Ingen kerneværdi",
+  andet: "Andet",
 };
 
 export const ILLUSTRATION_STATUSES = ["not_generated", "draft", "approved"] as const;
