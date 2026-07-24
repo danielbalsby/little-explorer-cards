@@ -59,6 +59,16 @@ function ManualPage() {
         <p className="text-muted-foreground mt-1">Redaktionelle og visuelle principper der styrer projektet.</p>
       </header>
 
+      <section className="rounded-2xl border bg-[oklch(0.97_0.01_85)] p-6">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">Produktprincip</div>
+        <h2 className="font-serif text-2xl mt-1">Forsiden bærer aktiviteten. Bagsiden bærer serien.</h2>
+        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
+          Hver forside er unik og fortæller ét roligt øjeblik. Bagsiden er derimod global og fælles for
+          alle kort — det er dér serien viser sit brand, sin tone og sin identitet. Bagsiden redigeres kun
+          ét sted (Design-lab / Indstillinger) og gælder automatisk for hele samlingen.
+        </p>
+      </section>
+
       {Object.entries(grouped ?? {}).map(([cat, items]) => (
         <section key={cat} className="rounded-2xl border bg-card p-6 space-y-4">
           <h2 className="font-serif text-xl">{cat}</h2>
