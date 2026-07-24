@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_safety_rules: {
+        Row: {
+          active: boolean
+          category: string
+          created_at: string
+          id: string
+          safety_instruction: string
+          severity: string
+          source: string | null
+          source_url: string | null
+          trigger: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category: string
+          created_at?: string
+          id?: string
+          safety_instruction: string
+          severity?: string
+          source?: string | null
+          source_url?: string | null
+          trigger: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          created_at?: string
+          id?: string
+          safety_instruction?: string
+          severity?: string
+          source?: string | null
+          source_url?: string | null
+          trigger?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       card_versions: {
         Row: {
           card_id: string
@@ -54,15 +93,26 @@ export type Database = {
       }
       cards: {
         Row: {
+          activity_mechanics: Json
           activity_steps: Json
           activity_type: string
           age_group: Database["public"]["Enums"]["age_group"]
           card_number: number
+          card_type: string
+          caregiver_energy: string | null
           created_at: string
           created_by: string | null
           did_you_know: string
           duration: string
+          evidence_level: string | null
           extended_content: Json | null
+          fact_source: string | null
+          fact_source_url: string | null
+          fact_statement: string | null
+          fact_verified: boolean
+          fact_verified_at: string | null
+          generation_rationale: string | null
+          good_when: Json
           id: string
           illustration_prompt: string | null
           illustration_status: string
@@ -72,12 +122,16 @@ export type Database = {
           materials: Json
           needs_shortening: boolean
           observations: string
+          parent_category: string | null
           pause_signs: string
           primary_development_area: string
           print_content: Json | null
           purpose: string
+          quality_score: Json | null
+          rejection_reason: string | null
           safety: string
           secondary_development_areas: Json
+          setup_level: string | null
           similarity_score: number | null
           status: Database["public"]["Enums"]["card_status"]
           title: string
@@ -86,15 +140,26 @@ export type Database = {
           version: number
         }
         Insert: {
+          activity_mechanics?: Json
           activity_steps?: Json
           activity_type?: string
           age_group: Database["public"]["Enums"]["age_group"]
           card_number?: number
+          card_type?: string
+          caregiver_energy?: string | null
           created_at?: string
           created_by?: string | null
           did_you_know?: string
           duration?: string
+          evidence_level?: string | null
           extended_content?: Json | null
+          fact_source?: string | null
+          fact_source_url?: string | null
+          fact_statement?: string | null
+          fact_verified?: boolean
+          fact_verified_at?: string | null
+          generation_rationale?: string | null
+          good_when?: Json
           id?: string
           illustration_prompt?: string | null
           illustration_status?: string
@@ -104,12 +169,16 @@ export type Database = {
           materials?: Json
           needs_shortening?: boolean
           observations?: string
+          parent_category?: string | null
           pause_signs?: string
           primary_development_area?: string
           print_content?: Json | null
           purpose?: string
+          quality_score?: Json | null
+          rejection_reason?: string | null
           safety?: string
           secondary_development_areas?: Json
+          setup_level?: string | null
           similarity_score?: number | null
           status?: Database["public"]["Enums"]["card_status"]
           title: string
@@ -118,15 +187,26 @@ export type Database = {
           version?: number
         }
         Update: {
+          activity_mechanics?: Json
           activity_steps?: Json
           activity_type?: string
           age_group?: Database["public"]["Enums"]["age_group"]
           card_number?: number
+          card_type?: string
+          caregiver_energy?: string | null
           created_at?: string
           created_by?: string | null
           did_you_know?: string
           duration?: string
+          evidence_level?: string | null
           extended_content?: Json | null
+          fact_source?: string | null
+          fact_source_url?: string | null
+          fact_statement?: string | null
+          fact_verified?: boolean
+          fact_verified_at?: string | null
+          generation_rationale?: string | null
+          good_when?: Json
           id?: string
           illustration_prompt?: string | null
           illustration_status?: string
@@ -136,12 +216,16 @@ export type Database = {
           materials?: Json
           needs_shortening?: boolean
           observations?: string
+          parent_category?: string | null
           pause_signs?: string
           primary_development_area?: string
           print_content?: Json | null
           purpose?: string
+          quality_score?: Json | null
+          rejection_reason?: string | null
           safety?: string
           secondary_development_areas?: Json
+          setup_level?: string | null
           similarity_score?: number | null
           status?: Database["public"]["Enums"]["card_status"]
           title?: string
