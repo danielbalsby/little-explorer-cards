@@ -169,3 +169,16 @@ function BarRow({ label, value, max, tokenVar }: { label: string; value: number;
     </div>
   );
 }
+
+function SeriesStat({ label, value, tone }: { label: string; value: number | string; tone?: "sage" | "sand" | "clay" }) {
+  const bg = tone === "sage" ? "var(--color-sage)" : tone === "sand" ? "var(--color-sand)" : tone === "clay" ? "var(--color-clay)" : "var(--color-muted)";
+  return (
+    <div className="rounded-xl border p-4">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="flex items-baseline gap-2 mt-1">
+        <div className="font-serif text-2xl">{value}</div>
+        <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: bg }} />
+      </div>
+    </div>
+  );
+}
