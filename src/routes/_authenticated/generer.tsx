@@ -4,9 +4,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import {
   AGE_GROUPS, AGE_LABELS, DEVELOPMENT_AREAS, ACTIVITY_TYPES, DURATIONS,
-  type AgeGroup, type CardContent,
+  type AgeGroup, type GeneratedCard,
 } from "@/lib/card-schema";
-import { generateCard, saveCard, checkSimilarity } from "@/lib/cards.functions";
+import { generateCard, saveCard, checkSimilarity, shortenCardText } from "@/lib/cards.functions";
+import { CardFront } from "@/components/card-front";
+import { CardBack } from "@/components/card-back";
+import { countPrintWords, fitStatus } from "@/lib/card-text";
+import { CARD_FORMAT } from "@/lib/card-format";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -14,9 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { CardPreview } from "@/components/card-preview";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Save } from "lucide-react";
+import { Sparkles, Loader2, Save, Scissors } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/generer")({
   head: () => ({ meta: [{ title: "Generér kort — Babykort" }] }),
@@ -28,6 +31,7 @@ function GeneratePage() {
   const gen = useServerFn(generateCard);
   const save = useServerFn(saveCard);
   const sim = useServerFn(checkSimilarity);
+  const shorten = useServerFn(shortenCardText);
 
   const [age, setAge] = useState<AgeGroup>("2-4m");
   const [primary, setPrimary] = useState<string>("Tilknytning");
@@ -38,8 +42,12 @@ function GeneratePage() {
   const [materialsInput, setMaterialsInput] = useState("");
   const [extra, setExtra] = useState("");
 
-  const [preview, setPreview] = useState<CardContent | null>(null);
+  const [preview, setPreview] = useState<GeneratedCard | null>(null);
+  const [side, setSide] = useState<"front" | "back">("front");
   const [similar, setSimilar] = useState<Array<{ id: string; card_number: number; title: string; score: number }>>([]);
+
+  const wordCount = preview ? countPrintWords(preview.print) : 0;
+  const status = fitStatus(wordCount);
 
   const generateM = useMutation({
     mutationFn: () => gen({ data: {
@@ -51,16 +59,35 @@ function GeneratePage() {
     onSuccess: async (res) => {
       if (!res.ok) { toast.error(res.error); return; }
       setPreview(res.card);
-      const check = await sim({ data: { card: res.card } });
+      const check = await sim({ data: { print: res.card.print } });
       setSimilar(check.matches);
       if (check.matches.length > 0) toast.warning("Kortet minder om eksisterende kort.");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Fejl"),
   });
 
+  const shortenM = useMutation({
+    mutationFn: () => shorten({ data: { print: preview!.print } }),
+    onSuccess: (res) => {
+      if (!res.ok) { toast.error(res.error); return; }
+      setPreview({ ...preview!, print: res.print });
+      toast.success("Tekst forkortet.");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Fejl"),
+  });
+
   const saveM = useMutation({
-    mutationFn: (status: "draft" | "approved") =>
-      save({ data: { content: preview!, status } }),
+    mutationFn: (saveStatus: "draft" | "approved") =>
+      save({ data: {
+        print: preview!.print,
+        extended: preview!.extended,
+        illustration_prompt: preview!.illustration_prompt,
+        activity_type: preview!.activity_type,
+        duration: preview!.duration,
+        primary_development_area: preview!.primary_development_area,
+        secondary_development_areas: preview!.secondary_development_areas,
+        status: saveStatus,
+      } }),
     onSuccess: (card) => {
       toast.success("Kort gemt.");
       navigate({ to: "/kort/$id", params: { id: card.id } });
@@ -72,7 +99,7 @@ function GeneratePage() {
     <div className="p-6 md:p-10 max-w-7xl mx-auto">
       <header className="mb-8">
         <h1 className="font-serif text-4xl">Generér aktivitetskort</h1>
-        <p className="text-muted-foreground mt-1">Vælg parametre og lad AI foreslå et originalt kort.</p>
+        <p className="text-muted-foreground mt-1">Fysisk kort, {CARD_FORMAT.trim.width}×{CARD_FORMAT.trim.height} mm. Kort tekst — max 190 ord.</p>
       </header>
 
       <div className="grid lg:grid-cols-2 gap-8">
@@ -164,7 +191,36 @@ function GeneratePage() {
         <section className="space-y-4">
           {preview ? (
             <>
-              <CardPreview card={preview} />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex rounded-md border overflow-hidden text-sm">
+                  {(["front", "back"] as const).map((s) => (
+                    <button key={s} onClick={() => setSide(s)}
+                      className={"px-3 py-1.5 " + (side === s ? "bg-muted" : "hover:bg-muted/50")}>
+                      {s === "front" ? "Forside" : "Bagside"}
+                    </button>
+                  ))}
+                </div>
+                <div className={"text-xs px-2.5 py-1 rounded-full border " +
+                  (status === "ok" ? "bg-[color:var(--color-sage)]/25 border-transparent"
+                    : status === "warn" ? "bg-[color:var(--color-butter)]/50 border-transparent"
+                      : "bg-destructive/20 border-transparent")}>
+                  {wordCount} ord {status === "over" ? "· for langt" : status === "warn" ? "· tæt på max" : "· passer"}
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                {side === "front" ? (
+                  <CardFront print={preview.print} />
+                ) : (
+                  <CardBack
+                    title={preview.print.title}
+                    age_group={preview.print.age_group}
+                    illustration_status="not_generated"
+                    seed={preview.print.title.length}
+                  />
+                )}
+              </div>
+
               {similar.length > 0 && (
                 <div className="rounded-xl border bg-[color:var(--color-butter)]/40 p-4 text-sm">
                   <div className="font-medium mb-1">Kan minde om:</div>
@@ -175,12 +231,16 @@ function GeneratePage() {
                   </ul>
                 </div>
               )}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" onClick={() => generateM.mutate()} disabled={generateM.isPending}>
                   Ny version
                 </Button>
+                <Button variant="outline" onClick={() => shortenM.mutate()} disabled={shortenM.isPending || status === "ok"}>
+                  {shortenM.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Scissors className="mr-1.5 h-4 w-4" />}
+                  Forkort tekst
+                </Button>
                 <Button variant="outline" onClick={() => saveM.mutate("draft")} disabled={saveM.isPending}>
-                  <Save className="mr-2 h-4 w-4" /> Gem som udkast
+                  <Save className="mr-1.5 h-4 w-4" /> Gem som udkast
                 </Button>
                 <Button onClick={() => saveM.mutate("approved")} disabled={saveM.isPending}>
                   Godkend & gem
