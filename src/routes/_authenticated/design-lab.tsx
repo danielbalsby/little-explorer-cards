@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StorybookFront } from "@/components/card-variants/storybook";
 import {
   BACK_V3_RENDERERS,
@@ -123,7 +123,49 @@ const SAMPLE_CARDS: SampleCard[] = [
   { category: "leg_udforskning", title: "Skjul og find", age: "9-12m", areas: ["Leg", "Kognition"],
     intro: "Et lille objekt der forsvinder og kommer igen.",
     steps: ["Skjul en klods under en klud.", "Vent på babys reaktion.", "Vis den igen."] },
+
+  /* Runde 2: sværere/kant-titler pr. kategori — tester at scenen holder */
+  { category: "naerhed_samspil", title: "Rolig nærhed", age: "0-2m", areas: ["Kontakt", "Regulering"],
+    intro: "Bare være tæt — uden program.", steps: ["Sæt jer tæt.", "Vær stille.", "Følg babys blik."] },
+  { category: "krop_bevaegelse", title: "Rul mig blidt", age: "6-9m", areas: ["Motorik", "Balance"],
+    intro: "Et blidt rul mellem to positioner.", steps: ["Læg baby på ryggen.", "Støt hoften.", "Rul roligt til siden."] },
+  { category: "haender_nysgerrighed", title: "Hånd i hånd", age: "2-4m", areas: ["Kontakt", "Motorik"],
+    intro: "Babys hånd møder din finger.", steps: ["Tilbyd din finger.", "Vent på grebet.", "Bliv i berøringen."] },
+  { category: "sanser_opdagelse", title: "Lysdans", age: "4-6m", areas: ["Sanser", "Syn"],
+    intro: "Blødt lys der bevæger sig langsomt.", steps: ["Skab blødt lys.", "Bevæg det roligt.", "Følg babys blik."] },
+  { category: "sprog_samtale", title: "Første ord", age: "9-12m", areas: ["Sprog"],
+    intro: "Ét ord — gentaget varmt.", steps: ["Vælg ét kendt ord.", "Sig det tydeligt.", "Vent på svar."] },
+  { category: "musik_rytme", title: "Klap og syng", age: "6-9m", areas: ["Rytme", "Motorik"],
+    intro: "En kort rytme sammen.", steps: ["Syng samme sang.", "Klap i takt.", "Stop og vent."] },
+  { category: "natur_udeliv", title: "Første regn", age: "6-9m", areas: ["Sanser", "Natur"],
+    intro: "Regnen på hånden — første gang.", steps: ["Gå ud sammen.", "Ræk hånden frem.", "Sæt ord på."] },
+  { category: "hverdagsstunder", title: "Bordet er dækket", age: "9-12m", areas: ["Rutiner", "Sprog"],
+    intro: "En rolig overgang til måltidet.", steps: ["Fortæl hvad du gør.", "Vent på babys blik.", "Sæt jer sammen."] },
+  { category: "ro_tryghed", title: "Puttetid", age: "4-6m", areas: ["Tryghed", "Søvn"],
+    intro: "Samme lille rutine hver aften.", steps: ["Dæmp lyset.", "Nyn samme melodi.", "Bliv til baby falder til ro."] },
+  { category: "leg_udforskning", title: "Klods på klods", age: "9-12m", areas: ["Leg", "Motorik"],
+    intro: "To klodser — og en pause imellem.", steps: ["Læg én klods frem.", "Vent på babys hånd.", "Læg den anden ved siden af."] },
 ];
+
+/* ============ Approval state (per-category lock) ============ */
+const APPROVAL_KEY = "design-lab-v6-category-approvals";
+function useCategoryApprovals() {
+  const [approved, setApproved] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(APPROVAL_KEY);
+      if (raw) setApproved(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+  const toggle = (id: string) => {
+    setApproved((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(APPROVAL_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  return { approved, toggle };
+}
 
 function printFrom(s: SampleCard): PrintContent {
   return {
