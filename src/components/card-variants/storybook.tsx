@@ -2,18 +2,20 @@ import type { PrintContent } from "@/lib/card-schema";
 import { AGE_LABELS, type AgeGroup } from "@/lib/card-schema";
 import { CARD_FORMAT } from "@/lib/card-format";
 import { cardShell, cardTrim, P } from "./shared";
+import { SCENE_RENDERERS, type SceneKey } from "./scenes";
 
 interface Props {
   print: Partial<PrintContent>;
   scale?: number;
+  /** Ny: vælg hvilken scene-komposition der skal vises øverst. */
+  scene?: SceneKey;
 }
 
 /**
  * C — MINIMAL STORYBOOK
- * Illustration fylder øverste ⅓ som en scene. Rolig typografi.
- * Håndtegnet stemning, meget negativ plads.
+ * Style lock (streg, palette, negativt rum) er fælles. Scenen varierer per kort.
  */
-export function StorybookFront({ print, scale = 1 }: Props) {
+export function StorybookFront({ print, scale = 1, scene = "face" }: Props) {
   const { safe, trim } = CARD_FORMAT;
   const age = (print.age_group as AgeGroup) ?? "2-4m";
   const areas = (print.development_areas ?? []).slice(0, 3);
